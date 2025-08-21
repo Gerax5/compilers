@@ -3,12 +3,39 @@ from antlr4 import *
 from CompiscriptLexer import CompiscriptLexer
 from CompiscriptParser import CompiscriptParser
 
+from CompiscriptListener import CompiscriptListener
+
+from src.utils.Errors import Error
+from src.symbolTable.SymbolTableBuilder import SymbolTableBuilder
+
 def main(argv):
     input_stream = FileStream(argv[1])
     lexer = CompiscriptLexer(input_stream)
     stream = CommonTokenStream(lexer)
     parser = CompiscriptParser(stream)
     tree = parser.program()  # We are using 'prog' since this is the starting rule based on our Compiscript grammar, yay!
+
+    # print("Rule names:", parser.ruleNames)
+
+    # [m for m in dir(CompiscriptListener) if m.startswith(('enter','exit'))]
+    # [m for m in dir(CompiscriptParserVisitor)  if m.startswith('visit')]
+    errors = Error()
+
+    walker = ParseTreeWalker()
+    listener = SymbolTableBuilder(errors)
+    walker.walk(listener, tree)
+
+    # print("GLOBAL:", list(listener.globalScope.symbols.keys()))
+    # Scopes que guardaste
+    # for ctx, sc in listener.scopes.items():
+    #     print(type(ctx).__name__, sc.name, list(sc.symbols.keys()))
+
+    for error in errors.errors:
+        print(error)
+
+
+
+
 
 if __name__ == '__main__':
     main(sys.argv)
