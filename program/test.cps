@@ -18,3 +18,13 @@ class Animal {
     return this.name + " makes a sound.";
   }
 }
+
+foreach (n in numbers) {
+  if (n == 3) {
+    continue;
+  }
+  print("Number: " + n);
+  if (n > 4) {
+    break;
+  }
+}

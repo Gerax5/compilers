@@ -6,4 +6,4 @@ class Type(Enum):
     BOOL="bool"; 
     STRING="string"; 
     VOID="void"; 
-    NIL="nil"
+    NULL = "null"

@@ -6,11 +6,14 @@ from CompiscriptParser import CompiscriptParser
 
 
 class SymbolTableBuilder(CompiscriptListener):
+
     def __init__(self, errors: Error):
         self.errors = errors
         self.globalScope = Scope(None, "global")
         self.current = self.globalScope
         self.scopes = {}
+        self.loop_depth = 0
+        self.switch_depth = 0
 
     # Program
     def enterProgram(self, ctx): 
@@ -28,7 +31,7 @@ class SymbolTableBuilder(CompiscriptListener):
     def enterConstantDeclaration(self, ctx):
         name = ctx.Identifier().getText() 
         ty = ctx.typeAnnotation().type_()
-        ty_decl = self._type_of(ty) if ty else Type.NIL
+        ty_decl = self._type_of(ty) if ty else Type.NULL
         sym = VarSymbol(name, ty_decl, is_const=True)
         if not self.current.define(sym):
             self.errors.err_ctx(ctx, f"Constant '{name}' redeclared in this scope")
@@ -36,7 +39,7 @@ class SymbolTableBuilder(CompiscriptListener):
     def enterVariableDeclaration(self, ctx):
         name = ctx.Identifier().getText()
         ty = ctx.typeAnnotation().type_()
-        ty = self._type_of(ty) if ty else Type.NIL
+        ty = self._type_of(ty) if ty else Type.NULL
         if not self.current.define(VarSymbol(name, ty)):
             self.errors.err_ctx(ctx, f"Variable '{name}' redeclared in this scope")
 
@@ -83,10 +86,46 @@ class SymbolTableBuilder(CompiscriptListener):
     def exitClassDeclaration(self, ctx):
         self.current = self.current.parent
 
+    def enterForStatement(self, ctx):
+        forScope = Scope(self.current, "for")
+        self.current = forScope
+        self.scopes[ctx] = forScope
+        self.loop_depth += 1
+
+    def exitForStatement(self, ctx):
+        self.loop_depth -= 1
+        self.current = self.current.parent
+
+    def enterForeachStatement(self, ctx):
+        feScope = Scope(self.current, "foreach")
+        self.current = feScope
+        self.scopes[ctx] = feScope
+        self.loop_depth += 1
+
+        nameVariable = ctx.Identifier().getText()
+        self.current.define(VarSymbol(nameVariable, Type.NULL))
+
+
+    def exitForeachStatement(self, ctx):
+        self.loop_depth -= 1
+        self.current = self.current.parent
+
+    def enterWhileStatement(self, ctx):
+        self.loop_depth += 1
+
+    def exitWhileStatement(self, ctx):
+        self.loop_depth -= 1
+
+    def enterDoWhileStatement(self, ctx):
+        self.loop_depth += 1
+
+    def exitDoWhileStatement(self, ctx):
+        self.loop_depth -= 1
+
     def _type_of(self, tctx) -> Type:
-        if tctx is None: return Type.NIL
+        if tctx is None: return Type.NULL
         text = tctx.getText()
         return {
             "int":Type.INT, "float":Type.FLOAT, "bool":Type.BOOL,
             "string":Type.STRING, "void":Type.VOID
-        }.get(text, Type.NIL)
+        }.get(text, Type.NULL)
