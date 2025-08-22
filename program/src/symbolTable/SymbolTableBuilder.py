@@ -1,6 +1,6 @@
 from src.utils.Errors import Error
 from src.utils.Scope import VarSymbol, Type, ClassSymbol, FuncSymbol, Scope
-from src.utils.Types import Type
+from src.utils.Types import Type, ArrayType
 from CompiscriptListener import CompiscriptListener
 from CompiscriptParser import CompiscriptParser
 
@@ -122,10 +122,31 @@ class SymbolTableBuilder(CompiscriptListener):
     def exitDoWhileStatement(self, ctx):
         self.loop_depth -= 1
 
-    def _type_of(self, tctx) -> Type:
-        if tctx is None: return Type.NULL
-        text = tctx.getText()
-        return {
-            "int":Type.INT, "float":Type.FLOAT, "bool":Type.BOOL,
-            "string":Type.STRING, "void":Type.VOID
-        }.get(text, Type.NULL)
+    def _type_of(self, tctx):
+        if tctx is None:
+            return Type.NULL
+        
+        text = tctx.getText() 
+        
+        # contar cuántos [] hay
+        dims = text.count("[]")
+        
+        # quitar los [] para ver el tipo base
+        base_name = text.replace("[]", "")
+        
+        base = {
+            "int": Type.INT, "integer": Type.INT,
+            "float": Type.FLOAT,
+            "bool": Type.BOOL, "boolean": Type.BOOL,
+            "string": Type.STRING,
+            "void": Type.VOID,
+            "null": Type.NULL
+        }.get(base_name, None)
+        
+        if base is None:
+            raise Exception(f"Tipo desconocido '{base_name}'")
+        
+        if dims > 0:
+            return ArrayType(base, dims)
+        else:
+            return base
