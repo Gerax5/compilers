@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 from src.utils.Types import Type
 
 class Symbol:
@@ -17,6 +17,14 @@ class FuncSymbol(Symbol):
         super().__init__(name, ret)
         self.kind = 'func'
         self.params = params
+
+class ClassSymbol(Symbol):
+    def __init__(self, name: str):
+        super().__init__(name, None)
+        self.kind = 'class'
+        self.fields: dict[str, Symbol] = {}
+        self.methods: dict[str, FuncSymbol] = {}
+        self.scope: Scope|None = None
 
 class Scope:
     def __init__(self, parent=None, name="<scope>"):

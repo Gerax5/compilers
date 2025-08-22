@@ -1,7 +1,8 @@
 from src.utils.Errors import Error
-from src.utils.Scope import *
+from src.utils.Scope import VarSymbol, Type, ClassSymbol, FuncSymbol, Scope
 from src.utils.Types import Type
 from CompiscriptListener import CompiscriptListener
+from CompiscriptParser import CompiscriptParser
 
 
 class SymbolTableBuilder(CompiscriptListener):
@@ -9,11 +10,13 @@ class SymbolTableBuilder(CompiscriptListener):
         self.errors = errors
         self.globalScope = Scope(None, "global")
         self.current = self.globalScope
-        self.scopes = {}  # ctx -> scope (para la 2ª pasada)
+        self.scopes = {}
 
+    # Program
     def enterProgram(self, ctx): 
         self.scopes[ctx] = self.current
 
+    # Block
     def enterBlock(self, ctx):
         self.current = Scope(self.current, "block")
         self.scopes[ctx] = self.current
@@ -21,24 +24,7 @@ class SymbolTableBuilder(CompiscriptListener):
     def exitBlock(self, ctx):
         self.current = self.current.parent
 
-    # def enterFunctionDeclaration(self, ctx):
-    #     name = ctx.ID().getText()
-    #     ret  = self._type_of(ctx.type_()) if ctx.type_() else Type.VOID
-    #     func = FuncSymbol(name, ret, [])
-    #     if not self.current.define(func):
-    #         self.errors.err_ctx(ctx, f"Function '{name}' redeclared")
-
-    #     self.current = Scope(self.current, f"func {name}")
-    #     self.scopes[ctx] = self.current
-
-    #     if ctx.params():
-    #         for p in ctx.params().param(): 
-    #             pid = p.ID().getText()
-    #             pty = self._type_of(p.type_())
-    #             if not self.current.define(VarSymbol(pid, pty)):
-    #                 self.errors.err_ctx(p, f"Parameter '{pid}' duplicated")
-    #             func.params.append(VarSymbol(pid, pty))
-
+    # Variables
     def enterConstantDeclaration(self, ctx):
         name = ctx.Identifier().getText() 
         ty = ctx.typeAnnotation().type_()
@@ -47,15 +33,55 @@ class SymbolTableBuilder(CompiscriptListener):
         if not self.current.define(sym):
             self.errors.err_ctx(ctx, f"Constant '{name}' redeclared in this scope")
 
-    # def exitFunctionDeclaration(self, ctx):
-    #     self.current = self.current.parent
-
     def enterVariableDeclaration(self, ctx):
         name = ctx.Identifier().getText()
         ty = ctx.typeAnnotation().type_()
         ty = self._type_of(ty) if ty else Type.NIL
         if not self.current.define(VarSymbol(name, ty)):
             self.errors.err_ctx(ctx, f"Variable '{name}' redeclared in this scope")
+
+    # Functions
+    def enterFunctionDeclaration(self, ctx):
+        name = ctx.Identifier().getText() 
+        ty = ctx.type_()
+        ret  = self._type_of(ty) if ty else Type.VOID
+        func = FuncSymbol(name, ret, [])
+        if not self.current.define(func):
+            self.errors.err_ctx(ctx, f"Function '{name}' redeclared")
+
+        self.current = Scope(self.current, f"func {name}")
+        self.scopes[ctx] = self.current
+
+        if ctx.parameters():
+            for p in ctx.parameters().parameter(): 
+                p: CompiscriptParser.ParametersContext
+                pid = p.Identifier().getText()
+                pty_ = p.type_()
+                pty = self._type_of(pty_)
+                if not self.current.define(VarSymbol(pid, pty)):
+                    self.errors.err_ctx(p, f"Parameter '{pid}' duplicated")
+                func.params.append(VarSymbol(pid, pty))
+
+    def exitFunctionDeclaration(self, ctx):
+        self.current = self.current.parent
+    
+    # Clases
+    def enterClassDeclaration(self, ctx):
+        name = ctx.Identifier(0).getText()
+
+        cls = ClassSymbol(name)
+        if not self.current.define(cls):
+            self.errors.err_ctx(ctx, f"Class '{name}' redeclared")
+
+        classScope = Scope(self.current, f"class {name}")
+        self.scopes[ctx] = classScope
+        self.current = classScope
+        cls.scope = classScope
+
+        self.current.define(VarSymbol("this", cls, is_const=True))
+
+    def exitClassDeclaration(self, ctx):
+        self.current = self.current.parent
 
     def _type_of(self, tctx) -> Type:
         if tctx is None: return Type.NIL

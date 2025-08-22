@@ -25,10 +25,9 @@ def main(argv):
     listener = SymbolTableBuilder(errors)
     walker.walk(listener, tree)
 
-    # print("GLOBAL:", list(listener.globalScope.symbols.keys()))
-    # Scopes que guardaste
-    # for ctx, sc in listener.scopes.items():
-    #     print(type(ctx).__name__, sc.name, list(sc.symbols.keys()))
+    print("GLOBAL:", list(listener.globalScope.symbols.keys()))
+    for ctx, sc in listener.scopes.items():
+        print(type(ctx).__name__, sc.name, list(sc.symbols.keys()))
 
     for error in errors.errors:
         print(error)
