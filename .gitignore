@@ -1,9 +1,9 @@
 configs
-program/__pycache__
+__pycache__/
 
-program/symbolTable/__pycache__
+# Ignorar compilados de Python
+*.pyc
+*.pyo
+*.pyd
 
-program/typeChecker/__pycache__
 program/typeChecker/t.py
-
-program/utils/__pycache__
