@@ -15,3 +15,9 @@ docker build --rm -t csp-image .
 ```diff
 docker run --rm -it -v "${PWD}\program:/program" csp-image
 ```
+
+3. Ejemplo de ejecución
+
+```diff
+python3 Driver.py program.cps
+```
