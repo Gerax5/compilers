@@ -1,2 +1,9 @@
 configs
 program/__pycache__
+
+program/symbolTable/__pycache__
+
+program/typeChecker/__pycache__
+program/typeChecker/t.py
+
+program/utils/__pycache__

@@ -7,6 +7,7 @@ from CompiscriptListener import CompiscriptListener
 
 from src.utils.Errors import Error
 from src.symbolTable.SymbolTableBuilder import SymbolTableBuilder
+from src.typeChecker.TypeChecker import TypeChecker
 
 def main(argv):
     input_stream = FileStream(argv[1])
@@ -24,6 +25,9 @@ def main(argv):
     walker = ParseTreeWalker()
     listener = SymbolTableBuilder(errors)
     walker.walk(listener, tree)
+
+    checker = TypeChecker(listener.scopes, listener.globalScope, errors, parser)
+    checker.visit(tree)
 
     print("GLOBAL:", list(listener.globalScope.symbols.keys()))
     for ctx, sc in listener.scopes.items():
