@@ -1,6 +1,5 @@
-class C {
-    let x: integer;
-    function m(): void {
-        this.x = 1;
-    }
+function makeAdder(x: integer): string {
+  return "hola";
 }
+
+let addFive: integer = (makeAdder(5));

@@ -166,3 +166,45 @@ def test_class_this_outside_class():
     tc, errors  = type_check(stb, errors, parser, tree)
 
     assert errors_contain(errors, "Uso de 'this' fuera de una clase")
+
+def test_call_function_with_string_argument():
+    src = """
+    function f(x: integer): integer {
+        return x;
+    }
+    
+    f("5");
+    """
+    parser, tree = parse_src(src)
+    stb, errors = build_symbols(tree)
+    tc, errors  = type_check(stb, errors, parser, tree)
+
+    assert errors_contain(errors, "Arg 1 de 'f': esperado Type.INT, recibió Type.STRING")
+
+def test_call_function_with_no_arguments():
+    src = """
+    function f(x: integer): integer {
+        return 42;
+    }
+
+    f();
+    """
+    parser, tree = parse_src(src)
+    stb, errors = build_symbols(tree)
+    tc, errors  = type_check(stb, errors, parser, tree)
+
+    assert errors_contain(errors, "'f' espera 1 args, recibió 0")
+
+def test_assignment_variable_function_call_with_diff_return_type():
+    src = """
+    function f(): integer {
+        return 42;
+    }
+
+    let x: string = f();
+    """
+    parser, tree = parse_src(src)
+    stb, errors = build_symbols(tree)
+    tc, errors  = type_check(stb, errors, parser, tree)
+
+    assert errors_contain(errors, "No se puede asignar Type.INT a Type.STRING en 'x'")

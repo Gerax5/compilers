@@ -116,12 +116,15 @@ class TypeChecker(CompiscriptVisitor):
     
     # IDENTIFICADOR DE TIPOS
     def visitIdentifierExpr(self, ctx):
-        print("VISIT IDENTIFIER", ctx.getText())
         name = ctx.Identifier().getText()
         sym = self.current.resolve(name)
         if not sym:
             self.errors.err_ctx(ctx, f"'{name}' no declarado")
             return self._set(ctx, Type.NULL)
+        
+        if sym.kind == "func":
+            return self._set(ctx, sym) 
+
         return self._set(ctx, sym.ty)
 
     def visitLiteralExpr(self, ctx):
@@ -186,7 +189,6 @@ class TypeChecker(CompiscriptVisitor):
         ann  = ctx.typeAnnotation()
         declared_ty = self._type_of(ann.type_()) if ann else Type.NULL
 
-        print("DECLARED", declared_ty)
         sym = self.current.resolve(name)
         if not sym:
             self.errors.err_ctx(ctx, f"Interno: const '{name}' no encontrada")
@@ -206,7 +208,6 @@ class TypeChecker(CompiscriptVisitor):
         return None
 
     def visitAssignment(self, ctx):
-        print("TRANQUI")
         left = ctx.Identifier().getText()
         exps = ctx.expression() or []
 
@@ -223,10 +224,6 @@ class TypeChecker(CompiscriptVisitor):
 
         return self.visitChildren(ctx)
 
-        # return self._check_assignment(left, right, ctx)
-
-        # print(right_ty)
-
     def visitAssignExpr(self, ctx):
         print("FEA")
         # print("AASIGN EXPR")
@@ -236,12 +233,13 @@ class TypeChecker(CompiscriptVisitor):
 
     
     def visitVariableDeclaration(self, ctx):
+        print("VISIT VAR DECLARATION", ctx.getText())
         name = ctx.Identifier().getText()
         ann  = getattr(ctx, "typeAnnotation", None) and ctx.typeAnnotation()
         declared_ty = self._type_of(ann.type_()) if ann else Type.NULL
 
+
         sym = self.current.resolve(name)
-        print("SYM", sym)
         if not sym:
             self.errors.err_ctx(ctx, f"Interno: variable '{name}' no encontrada")
             return None
@@ -250,6 +248,7 @@ class TypeChecker(CompiscriptVisitor):
         init_ty = None
         if init:
             expr = getattr(init, "expression", None) and init.expression()
+            print("EXPR", list[expr])
             init_ty = self.visit(expr) if expr else self.visit(init)
 
         if declared_ty == Type.NULL and init_ty is not None:
@@ -294,6 +293,37 @@ class TypeChecker(CompiscriptVisitor):
         if not self._can_assign(expected, ty):
             self.errors.err_ctx(ctx, f"return: esperado {expected}, recibido {ty}")
         return self._set(ctx, expected)
+    
+    def visitCallExpr(self, ctx):
+        args_ctx = ctx.arguments()
+        if isinstance(args_ctx, list):
+            args_ctx = args_ctx[0] if args_ctx else None
+        exprs = (args_ctx.expression() if (args_ctx and hasattr(args_ctx, "expression")) else [])
+        args_ty = [self.visit(e) for e in exprs]
+
+        parent = ctx.parentCtx
+        callee_node = parent.getChild(0)        
+        callee_val  = self.visit(callee_node)
+
+        if not isinstance(callee_val, FuncSymbol):
+            self.errors.err_ctx(ctx, "expresión no invocable")
+            return self._set(ctx, Type.NULL)
+
+        params = callee_val.params
+        if len(params) != len(args_ty):
+            self.errors.err_ctx(ctx, f"'{callee_val.name}' espera {len(params)} args, recibió {len(args_ty)}")
+            return self._set(ctx, callee_val.ty)
+
+        for i, (p, a) in enumerate(zip(params, args_ty), 1):
+            if not self._can_assign(p.ty, a):
+                self.errors.err_ctx(ctx, f"Arg {i} de '{callee_val.name}': esperado {p.ty}, recibió {a}")
+        
+        return self._set(ctx, callee_val.ty)
+
+    def visitPrimaryExpr(self, ctx):
+        if ctx.getChildCount() == 3 and ctx.getChild(0).getText() == '(' and ctx.getChild(2).getText() == ')':
+            return self.visit(ctx.getChild(1))
+        return self.visitChildren(ctx)
 
     # CLASES
     def visitClassDeclaration(self, ctx):
