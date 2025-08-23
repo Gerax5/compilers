@@ -1,9 +1,10 @@
 configs
 __pycache__/
+.pytest_cache/
 
 # Ignorar compilados de Python
 *.pyc
 *.pyo
 *.pyd
 
-program/typeChecker/t.py
+program/t.py

@@ -94,15 +94,36 @@ def test_var_assignment_type_mismatch():
 
     assert errors_contain(errors, "No se puede asignar Type.STRING a Type.INT en 'a'")
 
-# def test_const_cannot_be_assigned():
-#     src = """
-#     const x: integer = 1;
-#     function g(): void {
-#       x = 2;
-#     }
-#     """
-#     parser, tree = parse_src(src)
-#     stb, errors = build_symbols(tree)
-#     tc, errors  = type_check(stb, errors, parser, tree)
+def test_const_cannot_be_assigned():
+    src = """
+    const x: integer = 1;
+    function g(): void {
+      x = 2;
+    }
+    """
+    parser, tree = parse_src(src)
+    stb, errors = build_symbols(tree)
+    tc, errors  = type_check(stb, errors, parser, tree)
 
-#     assert errors_contain(errors, "No se puede asignar a const 'x'")
+    assert errors_contain(errors, "No se puede asignar a const 'x'")
+
+def test_undeclared_identifier_in_return():
+    src = """
+    function f(): integer { return y; }
+    """
+    parser, tree = parse_src(src)
+    stb, errors = build_symbols(tree)
+    tc, errors  = type_check(stb, errors, parser, tree)
+
+    assert errors_contain(errors, "'y' no declarado")
+
+def test_array_literal_and_annotation_ok():
+    src = """
+    let nums: integer[] = [1, 2, 3];
+    let numsF: float[] = [1, 2, 3];   // int[] -> asignable a float[]
+    """
+    parser, tree = parse_src(src)
+    stb, errors = build_symbols(tree)
+    tc, errors  = type_check(stb, errors, parser, tree)
+
+    assert not errors.errors

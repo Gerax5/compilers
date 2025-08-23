@@ -16,10 +16,6 @@ def main(argv):
     parser = CompiscriptParser(stream)
     tree = parser.program()  # We are using 'prog' since this is the starting rule based on our Compiscript grammar, yay!
 
-    # print("Rule names:", parser.ruleNames)
-
-    # [m for m in dir(CompiscriptListener) if m.startswith(('enter','exit'))]
-    # [m for m in dir(CompiscriptParserVisitor)  if m.startswith('visit')]
     errors = Error()
 
     walker = ParseTreeWalker()

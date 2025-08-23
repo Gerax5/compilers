@@ -1,1 +1,2 @@
-const PI: integer = 314;
+const x: integer = 5;
+x = 10;

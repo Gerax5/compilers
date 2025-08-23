@@ -53,6 +53,50 @@ class TypeChecker(CompiscriptVisitor):
         if {a, b} <= {Type.INT, Type.FLOAT}:
             return Type.FLOAT
         return None
+    
+    def _apply_assignment(self, name, rhs_ty, ctx):
+        sym: VarSymbol = self.current.resolve(name)
+        if not sym:
+            self.errors.err_ctx(ctx, f"'{name}' no declarado")
+            return self._set(ctx, rhs_ty)
+        if sym.kind == 'const':
+            self.errors.err_ctx(ctx, f"No se puede asignar a const '{name}'")
+            return self._set(ctx, sym.ty)
+        if not self._can_assign(sym.ty, rhs_ty):
+            self.errors.err_ctx(ctx, f"Asignación incompatible: {sym.ty} = {rhs_ty}")
+        return self._set(ctx, sym.ty)
+
+    def _apply_property_assignment(self, recv_ty, prop, rhs_ty, ctx):
+        if not (hasattr(recv_ty, "kind") and recv_ty.kind == "class"):
+            self.errors.err_ctx(ctx, f"No se puede asignar propiedad '{prop}' sobre tipo {recv_ty}")
+            return self._set(ctx, rhs_ty)
+        cls_scope = getattr(recv_ty, "scope", None)
+        psym = cls_scope and cls_scope.resolve(prop)
+        if not psym:
+            self.errors.err_ctx(ctx, f"Propiedad '{prop}' no existe")
+            return self._set(ctx, rhs_ty)
+        if getattr(psym, "is_const", False):
+            self.errors.err_ctx(ctx, f"La propiedad '{prop}' es const")
+            return self._set(ctx, psym.ty)
+        if not self._can_assign(psym.ty, rhs_ty):
+            self.errors.err_ctx(ctx, f"Asignación incompatible a '{prop}': {psym.ty} = {rhs_ty}")
+        return self._set(ctx, psym.ty)
+
+    def _apply_index_assignment(self, arr_ty, idx_ty, rhs_ty, ctx):
+        from src.utils.Types import ArrayType, Type
+        if not isinstance(arr_ty, ArrayType):
+            self.errors.err_ctx(ctx, "Indexación sobre no-arreglo")
+            return self._set(ctx, rhs_ty)
+        if idx_ty != Type.INT:
+            self.errors.err_ctx(ctx, "Índice de arreglo debe ser integer")
+        # tipo del elemento
+        elem_ty = (ArrayType(arr_ty.base, arr_ty.dimensions-1)
+                if arr_ty.dimensions > 1 else arr_ty.base)
+        if not self._can_assign(elem_ty, rhs_ty):
+            self.errors.err_ctx(ctx, f"Asignación incompatible en arreglo: {elem_ty} = {rhs_ty}")
+        return self._set(ctx, elem_ty)
+
+
 
 
     # INITIAL
@@ -159,43 +203,35 @@ class TypeChecker(CompiscriptVisitor):
             self.errors.err_ctx(ctx, f"Const '{name}': esperado {declared_ty}, recibido {init_ty}")
         return None
 
+    def visitAssignment(self, ctx):
+        left = ctx.Identifier().getText()
+        exps = ctx.expression() or []
+
+        if len(exps) == 1:
+            # x = 10
+            rhs_ty = self.visit(exps[0])
+            return self._apply_assignment(left, rhs_ty, ctx)
+
+        elif len(exps) == 2:
+            # this.x = 10
+            recv_ty = self.visit(exps[0])
+            rhs_ty  = self.visit(exps[1])
+            return self._apply_property_assignment(recv_ty, left, rhs_ty, ctx)
+
+        return self.visitChildren(ctx)
+
+        # return self._check_assignment(left, right, ctx)
+
+        # print(right_ty)
+
     def visitAssignExpr(self, ctx):
-        lhs = getattr(ctx, "leftHandSide", None) and ctx.leftHandSide()
-        rhs = getattr(ctx, "expression", None) and ctx.expression()
+        # print("AASIGN EXPR")
+        # print(ctx.getChildCount())
+        # print(ctx.getChild(0).getText())
+        pass
 
-        rhs_ty = self.visit(rhs) if rhs else Type.NULL
 
-        ident_expr = lhs and getattr(lhs, "IdentifierExpr", None) and lhs.IdentifierExpr()
-        if ident_expr:
-            name = ident_expr.Identifier().getText()
-            sym = self.current.resolve(name)
-            if not sym:
-                self.errors.err_ctx(ctx, f"'{name}' no declarado")
-                return self._set(ctx, rhs_ty)
-            if getattr(sym, "is_const", False):
-                self.errors.err_ctx(ctx, f"No se puede asignar a const '{name}'")
-            elif not self._can_assign(sym.ty, rhs_ty):
-                self.errors.err_ctx(ctx, f"Asignación incompatible: {sym.ty} = {rhs_ty}")
-            return self._set(ctx, sym.ty)
-
-        return self._set(ctx, rhs_ty)
-
-    # Funciones y clases
-    def visitFunctionDeclaration(self, ctx):
-        prev_scope = self.current
-        fscope = self.scopes.get(ctx, self.current)
-        self.current = fscope
-
-        ret_ann = getattr(ctx, "type_", None) and ctx.type_()
-        ret_ty = self._type_of(ret_ann) if ret_ann else Type.VOID
-        self.fn_ret_stack.append(ret_ty)
-
-        r = self.visitChildren(ctx)
-
-        self.fn_ret_stack.pop()
-        self.current = prev_scope
-        return r
-
+    
     def visitVariableDeclaration(self, ctx):
         name = ctx.Identifier().getText()
         ann  = getattr(ctx, "typeAnnotation", None) and ctx.typeAnnotation()
@@ -221,6 +257,59 @@ class TypeChecker(CompiscriptVisitor):
 
         return None
 
+    # Funciones y clases
+    def visitFunctionDeclaration(self, ctx):
+        prev_scope = self.current
+        fscope = self.scopes.get(ctx, self.current)
+        self.current = fscope
+
+        ret_ann = getattr(ctx, "type_", None) and ctx.type_()
+        ret_ty = self._type_of(ret_ann) if ret_ann else Type.VOID
+        self.fn_ret_stack.append(ret_ty)
+
+        r = self.visitChildren(ctx)
+
+        self.fn_ret_stack.pop()
+        self.current = prev_scope
+        return r
+
+    def visitReturnStatement(self, ctx):
+        expected = self.fn_ret_stack[-1] if self.fn_ret_stack else Type.VOID
+        expr: CompiscriptParser.ExpressionContext = ctx.expression()
+        if expected == Type.VOID:
+            if expr is not None:
+                self.errors.err_ctx(ctx, "return no debe llevar expresión en función void")
+            return self._set(ctx, Type.VOID)
+
+        if expr is None:
+            self.errors.err_ctx(ctx, f"se esperaba return de tipo {expected}")
+            return self._set(ctx, expected)
+
+        ty = self.visit(expr)
+        print(ty)
+        if not self._can_assign(expected, ty):
+            self.errors.err_ctx(ctx, f"return: esperado {expected}, recibido {ty}")
+        return self._set(ctx, expected)
+
+    # ADD
+    def visitAdditiveExpr(self, ctx):
+        n = ctx.getChildCount()
+
+        if n == 1: # Por alguna razon entra aqui lol no entiendo
+            return self.visit(ctx.getChild(0))
+
+        left  = self.visit(ctx.getChild(0))
+        op = ctx.getChild(1).getText()
+        right = self.visit(ctx.getChild(2))
+
+        if left in (Type.INT, Type.FLOAT) and right in (Type.INT, Type.FLOAT):
+            return self._set(ctx, Type.FLOAT if Type.FLOAT in (left, right) else Type.INT)
+
+        if op == '+' and (left == Type.STRING or right == Type.STRING):
+            return self._set(ctx, Type.STRING)
+
+        self.errors.err_ctx(ctx, f"operación {op} inválida para {left} y {right}")
+        return self._set(ctx, Type.NULL)
 
     def _type_of(self, tctx):
         if tctx is None:
@@ -228,10 +317,8 @@ class TypeChecker(CompiscriptVisitor):
         
         text = tctx.getText() 
         
-        # contar cuántos [] hay
         dims = text.count("[]")
         
-        # quitar los [] para ver el tipo base
         base_name = text.replace("[]", "")
         
         base = {
