@@ -34,4 +34,5 @@ class Scope:
         self.symbols[sym.name] = sym; return True
     def resolve(self, name: str):
         s = self.symbols.get(name)
+        print("ESEEEE",name, s, self.parent)
         return s if s else (self.parent.resolve(name) if self.parent else None)

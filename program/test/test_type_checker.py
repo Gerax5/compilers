@@ -127,3 +127,42 @@ def test_array_literal_and_annotation_ok():
     tc, errors  = type_check(stb, errors, parser, tree)
 
     assert not errors.errors
+
+def test_class_declaration():
+    src = """
+    class C {
+        let x: integer;
+    }
+    """
+    parser, tree = parse_src(src)
+    stb, errors = build_symbols(tree)
+    tc, errors  = type_check(stb, errors, parser, tree)
+
+    assert not errors.errors
+
+def test_class_this_reference():
+    src = """
+    class C {
+        let x: integer;
+        function m(): void {
+            this.x = 1;
+        }
+    }
+    """
+    parser, tree = parse_src(src)
+    stb, errors = build_symbols(tree)
+    tc, errors  = type_check(stb, errors, parser, tree)
+
+    assert not errors.errors
+
+def test_class_this_outside_class():
+    src = """
+    function f(): void {
+        this.x = 1;
+    }
+    """
+    parser, tree = parse_src(src)
+    stb, errors = build_symbols(tree)
+    tc, errors  = type_check(stb, errors, parser, tree)
+
+    assert errors_contain(errors, "Uso de 'this' fuera de una clase")

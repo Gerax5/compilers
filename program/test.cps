@@ -1,2 +1,6 @@
-const x: integer = 5;
-x = 10;
+class C {
+    let x: integer;
+    function m(): void {
+        this.x = 1;
+    }
+}

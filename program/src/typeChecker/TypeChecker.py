@@ -55,6 +55,7 @@ class TypeChecker(CompiscriptVisitor):
         return None
     
     def _apply_assignment(self, name, rhs_ty, ctx):
+        print("ARBOL")
         sym: VarSymbol = self.current.resolve(name)
         if not sym:
             self.errors.err_ctx(ctx, f"'{name}' no declarado")
@@ -115,6 +116,7 @@ class TypeChecker(CompiscriptVisitor):
     
     # IDENTIFICADOR DE TIPOS
     def visitIdentifierExpr(self, ctx):
+        print("VISIT IDENTIFIER", ctx.getText())
         name = ctx.Identifier().getText()
         sym = self.current.resolve(name)
         if not sym:
@@ -184,7 +186,7 @@ class TypeChecker(CompiscriptVisitor):
         ann  = ctx.typeAnnotation()
         declared_ty = self._type_of(ann.type_()) if ann else Type.NULL
 
-
+        print("DECLARED", declared_ty)
         sym = self.current.resolve(name)
         if not sym:
             self.errors.err_ctx(ctx, f"Interno: const '{name}' no encontrada")
@@ -204,6 +206,7 @@ class TypeChecker(CompiscriptVisitor):
         return None
 
     def visitAssignment(self, ctx):
+        print("TRANQUI")
         left = ctx.Identifier().getText()
         exps = ctx.expression() or []
 
@@ -225,11 +228,11 @@ class TypeChecker(CompiscriptVisitor):
         # print(right_ty)
 
     def visitAssignExpr(self, ctx):
+        print("FEA")
         # print("AASIGN EXPR")
         # print(ctx.getChildCount())
         # print(ctx.getChild(0).getText())
         pass
-
 
     
     def visitVariableDeclaration(self, ctx):
@@ -238,6 +241,7 @@ class TypeChecker(CompiscriptVisitor):
         declared_ty = self._type_of(ann.type_()) if ann else Type.NULL
 
         sym = self.current.resolve(name)
+        print("SYM", sym)
         if not sym:
             self.errors.err_ctx(ctx, f"Interno: variable '{name}' no encontrada")
             return None
@@ -291,11 +295,26 @@ class TypeChecker(CompiscriptVisitor):
             self.errors.err_ctx(ctx, f"return: esperado {expected}, recibido {ty}")
         return self._set(ctx, expected)
 
+    # CLASES
+    def visitClassDeclaration(self, ctx):
+        prev = self.current
+        self.current = self.scopes.get(ctx, self.current)
+        r = self.visitChildren(ctx)
+        self.current = prev
+        return r
+
+    def visitThisExpr(self, ctx):
+        sym = self.current.resolve("this")
+        if not sym:
+            self.errors.err_ctx(ctx, "Uso de 'this' fuera de una clase")
+            return self._set(ctx, Type.NULL)
+        return self._set(ctx, sym.ty)
+
     # ADD
     def visitAdditiveExpr(self, ctx):
         n = ctx.getChildCount()
 
-        if n == 1: # Por alguna razon entra aqui lol no entiendo
+        if n == 1: # Por alguna razon las variables entran aqui lol no entiendo
             return self.visit(ctx.getChild(0))
 
         left  = self.visit(ctx.getChild(0))
