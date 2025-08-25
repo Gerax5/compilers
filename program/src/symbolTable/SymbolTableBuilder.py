@@ -72,7 +72,16 @@ class SymbolTableBuilder(CompiscriptListener):
     def enterClassDeclaration(self, ctx):
         name = ctx.Identifier(0).getText()
 
-        cls = ClassSymbol(name)
+        super_cls = None
+        if len(ctx.Identifier()) >= 2:           # hay superclase después de ':'
+            super_name = ctx.Identifier(1).getText()
+            sup = self.current.resolve(super_name)
+            if not sup or getattr(sup, "kind", "") != "class":
+                self.errors.err_ctx(ctx, f"Superclase '{super_name}' no existe")
+            else:
+                super_cls = sup
+
+        cls = ClassSymbol(name, super_cls)
         if not self.current.define(cls):
             self.errors.err_ctx(ctx, f"Class '{name}' redeclared")
 

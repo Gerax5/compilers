@@ -208,3 +208,27 @@ def test_assignment_variable_function_call_with_diff_return_type():
     tc, errors  = type_check(stb, errors, parser, tree)
 
     assert errors_contain(errors, "No se puede asignar Type.INT a Type.STRING en 'x'")
+
+def test_array_indexing():
+    src = """
+    let a: integer[] = [1, 2, 3];
+    let b: integer = a[0];
+    let c: float = a[1];
+    """
+    parser, tree = parse_src(src)
+    stb, errors = build_symbols(tree)
+    tc, errors  = type_check(stb, errors, parser, tree)
+
+    assert not errors.errors
+
+def test_assignment_array_element():
+    src = """
+    let a: integer[] = [1, 2, 3];
+    a[0] = 4;
+    a[1] = "hola";
+    """
+    parser, tree = parse_src(src)
+    stb, errors = build_symbols(tree)
+    tc, errors  = type_check(stb, errors, parser, tree)
+
+    assert errors_contain(errors, "Asignación incompatible en arreglo: Type.INT = Type.STRING")

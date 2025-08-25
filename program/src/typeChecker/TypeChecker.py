@@ -25,6 +25,14 @@ class TypeChecker(CompiscriptVisitor):
     def _same(self, a, b):
         return a == b
 
+    def _is_subclass(self, sub, sup):
+        c = sub
+        while c and getattr(c, "superclass", None):
+            if c.superclass == sup:
+                return True
+            c = c.superclass
+        return False
+
     def _can_assign(self, dst, src):
         if dst == src: return True
         if dst == Type.FLOAT and src == Type.INT: return True
@@ -37,6 +45,8 @@ class TypeChecker(CompiscriptVisitor):
             if dst.base == Type.FLOAT and src.base == Type.INT:
                 return True
             return False
+        if getattr(dst, "kind", "") == "class" and getattr(src, "kind", "") == "class":
+            return src == dst or self._is_subclass(src, dst)
         return False
 
     def _expect_bool(self, ctx, ty):
@@ -53,9 +63,19 @@ class TypeChecker(CompiscriptVisitor):
         if {a, b} <= {Type.INT, Type.FLOAT}:
             return Type.FLOAT
         return None
+
+    def _class_member(self, cls, name):
+        c = cls
+        while c:
+            sc = getattr(c, "scope", None)
+            if sc:
+                sym = sc.resolve(name)
+                if sym: return sym
+            c = getattr(c, "superclass", None)
+        return None
+
     
     def _apply_assignment(self, name, rhs_ty, ctx):
-        print("ARBOL")
         sym: VarSymbol = self.current.resolve(name)
         if not sym:
             self.errors.err_ctx(ctx, f"'{name}' no declarado")
@@ -64,15 +84,14 @@ class TypeChecker(CompiscriptVisitor):
             self.errors.err_ctx(ctx, f"No se puede asignar a const '{name}'")
             return self._set(ctx, sym.ty)
         if not self._can_assign(sym.ty, rhs_ty):
-            self.errors.err_ctx(ctx, f"Asignación incompatible: {sym.ty} = {rhs_ty}")
+            self.errors.err_ctx(ctx, f"Asignación incompatible: {sym.ty} y {rhs_ty}")
         return self._set(ctx, sym.ty)
 
     def _apply_property_assignment(self, recv_ty, prop, rhs_ty, ctx):
-        if not (hasattr(recv_ty, "kind") and recv_ty.kind == "class"):
+        if not (getattr(recv_ty, "kind", "") == "class"):
             self.errors.err_ctx(ctx, f"No se puede asignar propiedad '{prop}' sobre tipo {recv_ty}")
             return self._set(ctx, rhs_ty)
-        cls_scope = getattr(recv_ty, "scope", None)
-        psym = cls_scope and cls_scope.resolve(prop)
+        psym = self._class_member(recv_ty, prop)
         if not psym:
             self.errors.err_ctx(ctx, f"Propiedad '{prop}' no existe")
             return self._set(ctx, rhs_ty)
@@ -82,6 +101,7 @@ class TypeChecker(CompiscriptVisitor):
         if not self._can_assign(psym.ty, rhs_ty):
             self.errors.err_ctx(ctx, f"Asignación incompatible a '{prop}': {psym.ty} = {rhs_ty}")
         return self._set(ctx, psym.ty)
+
 
     def _apply_index_assignment(self, arr_ty, idx_ty, rhs_ty, ctx):
         from src.utils.Types import ArrayType, Type
@@ -95,8 +115,69 @@ class TypeChecker(CompiscriptVisitor):
                 if arr_ty.dimensions > 1 else arr_ty.base)
         if not self._can_assign(elem_ty, rhs_ty):
             self.errors.err_ctx(ctx, f"Asignación incompatible en arreglo: {elem_ty} = {rhs_ty}")
+
         return self._set(ctx, elem_ty)
 
+    def _const_int(self, expr_ctx):
+        txt = expr_ctx.getText().replace('_','')
+        if txt.startswith('-'):
+            return int(txt[1:]) * -1 if txt[1:].isdigit() else None
+        return int(txt) if txt.isdigit() else None
+
+    def _resolve_primary_atom_type(self, base):
+        if hasattr(base, "Identifier") and base.Identifier():
+            name = base.Identifier().getText()
+            sym = self.current.resolve(name)
+            if not sym:
+                self.errors.err_ctx(base, f"'{name}' no declarado")
+                return Type.NULL, name, None
+            return sym.ty, name, sym
+        ty = self.visit(base)
+        return ty, None, None
+
+
+    def visitPropertyAccessExpr(self, ctx):
+        print("A",ctx.getText())
+        pass
+        # recv_ty = self.visit(ctx.expression())
+        # prop = ctx.Identifier().getText()
+        # if not (getattr(recv_ty, "kind", "") == "class"):
+        #     self.errors.err_ctx(ctx, f"No se puede acceder propiedad '{prop}' sobre {recv_ty}")
+        #     return self._set(ctx, Type.NULL)
+        # sym = self._class_member(recv_ty, prop)
+        # if not sym:
+        #     self.errors.err_ctx(ctx, f"Propiedad '{prop}' no existe")
+        #     return self._set(ctx, Type.NULL)
+        # # Si es método, devolvemos el FuncSymbol (para que CallExpr lo use); si es campo, su tipo
+        # return self._set(ctx, sym if getattr(sym, "kind","")=="func" else sym.ty)
+    
+    def visitNewExpr(self, ctx):
+        print("B")
+        pass
+        # # asumiendo: 'new' Identifier '(' arguments? ')'
+        # cname = ctx.Identifier().getText()
+        # csym = self.current.resolve(cname)
+        # if not csym or getattr(csym, "kind","") != "class":
+        #     self.errors.err_ctx(ctx, f"Tipo de clase '{cname}' no encontrado")
+        #     return self._set(ctx, Type.NULL)
+
+        # args_ctx = ctx.arguments()
+        # exprs = args_ctx.expression() if (args_ctx and hasattr(args_ctx,"expression")) else []
+        # args_ty = [self.visit(e) for e in exprs]
+
+        # ctor = self._class_member(csym, "constructor")
+        # if ctor:
+        #     params = ctor.params
+        #     if len(params) != len(args_ty):
+        #         self.errors.err_ctx(ctx, f"constructor de {cname} espera {len(params)} args, recibió {len(args_ty)}")
+        #     else:
+        #         for i, (p, a) in enumerate(zip(params, args_ty), 1):
+        #             if not self._can_assign(p.ty, a):
+        #                 self.errors.err_ctx(ctx, f"Arg {i} del constructor de {cname}: esperado {p.ty}, recibió {a}")
+        # elif args_ty:
+        #     self.errors.err_ctx(ctx, f"{cname} no tiene constructor que acepte {len(args_ty)} args")
+
+        # return self._set(ctx, csym)
 
 
 
@@ -212,12 +293,10 @@ class TypeChecker(CompiscriptVisitor):
         exps = ctx.expression() or []
 
         if len(exps) == 1:
-            # x = 10
             rhs_ty = self.visit(exps[0])
             return self._apply_assignment(left, rhs_ty, ctx)
 
         elif len(exps) == 2:
-            # this.x = 10
             recv_ty = self.visit(exps[0])
             rhs_ty  = self.visit(exps[1])
             return self._apply_property_assignment(recv_ty, left, rhs_ty, ctx)
@@ -225,15 +304,66 @@ class TypeChecker(CompiscriptVisitor):
         return self.visitChildren(ctx)
 
     def visitAssignExpr(self, ctx):
-        print("FEA")
-        # print("AASIGN EXPR")
-        # print(ctx.getChildCount())
-        # print(ctx.getChild(0).getText())
-        pass
+        rhs_ty = self.visit(ctx.assignmentExpr())
+
+        lhs = ctx.leftHandSide()
+        base_ty, base_name, _ = self._resolve_primary_atom_type(lhs.primaryAtom())
+        suffixes = list(lhs.suffixOp() or [])
+
+        if not suffixes:
+            if base_name is None:
+                self.errors.err_ctx(lhs, "El lado izquierdo no es asignable")
+                return self._set(ctx, base_ty)
+            return self._apply_assignment(base_name, rhs_ty, ctx)
+
+        recv_ty = base_ty
+        for s in suffixes[:-1]:
+            kind = s.getChild(0).getText()  
+            if kind == '[':
+                idx_ty = self.visit(s.expression())
+                if idx_ty != Type.INT:
+                    self.errors.err_ctx(s, "Índice de arreglo debe ser integer")
+                if not isinstance(recv_ty, ArrayType):
+                    self.errors.err_ctx(s, "Indexación sobre no-arreglo")
+                    recv_ty = Type.NULL
+                else:
+                    recv_ty = (ArrayType(recv_ty.base, recv_ty.dimensions - 1)
+                            if recv_ty.dimensions > 1 else recv_ty.base)
+
+            elif kind == '.':
+                prop = s.Identifier().getText()
+                if not (hasattr(recv_ty, "kind") and recv_ty.kind == "class" and getattr(recv_ty, "scope", None)):
+                    self.errors.err_ctx(s, f"No se puede acceder propiedad '{prop}' sobre tipo {recv_ty}")
+                    recv_ty = Type.NULL
+                else:
+                    psym = recv_ty.scope.resolve(prop)
+                    if not psym:
+                        self.errors.err_ctx(s, f"Propiedad '{prop}' no existe")
+                        recv_ty = Type.NULL
+                    else:
+                        recv_ty = psym.ty
+
+            else:  
+                self.errors.err_ctx(s, "Una llamada no puede usarse como lado izquierdo de una asignación")
+                recv_ty = Type.NULL
+
+        last = suffixes[-1]
+        last_kind = last.getChild(0).getText()
+
+        if last_kind == '[':
+            idx_ty = self.visit(last.expression())
+            return self._apply_index_assignment(recv_ty, idx_ty, rhs_ty, ctx)
+
+        if last_kind == '.':
+            prop = last.Identifier().getText()
+            return self._apply_property_assignment(recv_ty, prop, rhs_ty, ctx)
+
+        self.errors.err_ctx(last, "Una llamada no puede usarse como lado izquierdo de una asignación")
+        return self._set(ctx, recv_ty)
+
 
     
     def visitVariableDeclaration(self, ctx):
-        print("VISIT VAR DECLARATION", ctx.getText())
         name = ctx.Identifier().getText()
         ann  = getattr(ctx, "typeAnnotation", None) and ctx.typeAnnotation()
         declared_ty = self._type_of(ann.type_()) if ann else Type.NULL
@@ -248,7 +378,6 @@ class TypeChecker(CompiscriptVisitor):
         init_ty = None
         if init:
             expr = getattr(init, "expression", None) and init.expression()
-            print("EXPR", list[expr])
             init_ty = self.visit(expr) if expr else self.visit(init)
 
         if declared_ty == Type.NULL and init_ty is not None:
@@ -259,6 +388,28 @@ class TypeChecker(CompiscriptVisitor):
             pass
 
         return None
+
+    def visitLeftHandSide(self, ctx):
+        return super().visitLeftHandSide(ctx)
+
+    # Varibales Arrays
+    def visitIndexExpr(self, ctx):
+        print(list[ctx.parentCtx.getChild(0).getText()])
+        recv_ty = self.visit(ctx.parentCtx.getChild(0))
+        idx_ty  = self.visit(ctx.expression())
+
+        if not isinstance(recv_ty, ArrayType):
+            self.errors.err_ctx(ctx, "Indexación sobre no-arreglo")
+            return self._set(ctx, Type.NULL)
+
+        if idx_ty != Type.INT:
+            self.errors.err_ctx(ctx, "Índice de arreglo debe ser integer")
+
+        elem_ty = (ArrayType(recv_ty.base, recv_ty.dimensions - 1)
+               if recv_ty.dimensions > 1 else recv_ty.base)
+
+        return self._set(ctx, elem_ty)
+       
 
     # Funciones y clases
     def visitFunctionDeclaration(self, ctx):

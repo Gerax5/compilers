@@ -19,12 +19,24 @@ class FuncSymbol(Symbol):
         self.params = params
 
 class ClassSymbol(Symbol):
-    def __init__(self, name: str):
+    def __init__(self, name: str, superclass: Optional["ClassSymbol"] = None):
         super().__init__(name, None)
         self.kind = 'class'
+        self.superclass = superclass
         self.fields: dict[str, Symbol] = {}
         self.methods: dict[str, FuncSymbol] = {}
         self.scope: Scope|None = None
+
+    def resolve_member(self, member: str):
+        c: ClassSymbol | None = self
+        while c:
+            sc = getattr(c, "scope", None)
+            if sc:
+                s = sc.resolve(member)
+                if s:
+                    return s
+            c = getattr(c, "superclass", None)
+        return None
 
 class Scope:
     def __init__(self, parent=None, name="<scope>"):

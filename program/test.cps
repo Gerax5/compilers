@@ -1,5 +1,17 @@
-function makeAdder(x: integer): string {
-  return "hola";
+class Animal {
+  let name: string;
+
+  function constructor(name: string) {
+    this.name = name;
+  }
+
+  function speak(): string {
+    return this.name + " makes a sound.";
+  }
 }
 
-let addFive: integer = (makeAdder(5));
+class Dog : Animal {
+  function speak(): string {
+    return this.name + " barks.";
+  }
+}
