@@ -137,13 +137,11 @@ class SymbolTableBuilder(CompiscriptListener):
         
         text = tctx.getText() 
         
-        # contar cuántos [] hay
         dims = text.count("[]")
         
-        # quitar los [] para ver el tipo base
         base_name = text.replace("[]", "")
-        
-        base = {
+
+        prim = {
             "int": Type.INT, "integer": Type.INT,
             "float": Type.FLOAT,
             "bool": Type.BOOL, "boolean": Type.BOOL,
@@ -151,11 +149,15 @@ class SymbolTableBuilder(CompiscriptListener):
             "void": Type.VOID,
             "null": Type.NULL
         }.get(base_name, None)
-        
-        if base is None:
-            raise Exception(f"Tipo desconocido '{base_name}'")
-        
-        if dims > 0:
-            return ArrayType(base, dims)
+
+        if prim is not None:
+            base = prim
         else:
-            return base
+            sym = self.current.resolve(base_name)
+            if isinstance(sym, ClassSymbol):
+                base = sym
+            else:
+                self.errors.err_ctx(tctx, f"Tipo desconocido '{base_name}'")
+                base = Type.NULL
+
+        return ArrayType(base, dims) if dims > 0 else base

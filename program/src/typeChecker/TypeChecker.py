@@ -136,51 +136,6 @@ class TypeChecker(CompiscriptVisitor):
         return ty, None, None
 
 
-    def visitPropertyAccessExpr(self, ctx):
-        print("A",ctx.getText())
-        pass
-        # recv_ty = self.visit(ctx.expression())
-        # prop = ctx.Identifier().getText()
-        # if not (getattr(recv_ty, "kind", "") == "class"):
-        #     self.errors.err_ctx(ctx, f"No se puede acceder propiedad '{prop}' sobre {recv_ty}")
-        #     return self._set(ctx, Type.NULL)
-        # sym = self._class_member(recv_ty, prop)
-        # if not sym:
-        #     self.errors.err_ctx(ctx, f"Propiedad '{prop}' no existe")
-        #     return self._set(ctx, Type.NULL)
-        # # Si es método, devolvemos el FuncSymbol (para que CallExpr lo use); si es campo, su tipo
-        # return self._set(ctx, sym if getattr(sym, "kind","")=="func" else sym.ty)
-    
-    def visitNewExpr(self, ctx):
-        print("B")
-        pass
-        # # asumiendo: 'new' Identifier '(' arguments? ')'
-        # cname = ctx.Identifier().getText()
-        # csym = self.current.resolve(cname)
-        # if not csym or getattr(csym, "kind","") != "class":
-        #     self.errors.err_ctx(ctx, f"Tipo de clase '{cname}' no encontrado")
-        #     return self._set(ctx, Type.NULL)
-
-        # args_ctx = ctx.arguments()
-        # exprs = args_ctx.expression() if (args_ctx and hasattr(args_ctx,"expression")) else []
-        # args_ty = [self.visit(e) for e in exprs]
-
-        # ctor = self._class_member(csym, "constructor")
-        # if ctor:
-        #     params = ctor.params
-        #     if len(params) != len(args_ty):
-        #         self.errors.err_ctx(ctx, f"constructor de {cname} espera {len(params)} args, recibió {len(args_ty)}")
-        #     else:
-        #         for i, (p, a) in enumerate(zip(params, args_ty), 1):
-        #             if not self._can_assign(p.ty, a):
-        #                 self.errors.err_ctx(ctx, f"Arg {i} del constructor de {cname}: esperado {p.ty}, recibió {a}")
-        # elif args_ty:
-        #     self.errors.err_ctx(ctx, f"{cname} no tiene constructor que acepte {len(args_ty)} args")
-
-        # return self._set(ctx, csym)
-
-
-
     # INITIAL
     def visitProgram(self, ctx):
         return self.visitChildren(ctx)
@@ -205,6 +160,9 @@ class TypeChecker(CompiscriptVisitor):
         
         if sym.kind == "func":
             return self._set(ctx, sym) 
+
+        if getattr(sym, "kind", "") == "class":
+            return self._set(ctx, sym)
 
         return self._set(ctx, sym.ty)
 
@@ -237,20 +195,20 @@ class TypeChecker(CompiscriptVisitor):
                 self.errors.err_ctx(ctx, "Arreglo irregular: mezcla de elemento escalar y subarreglo.")
                 return self._set(ctx, ArrayType(Type.NULL, 1))
 
-            dims = elem_types[0].dimensions
-            if any(t.dimensions != dims for t in elem_types):
+            inner_dims = elem_types[0].dimensions
+            if any(t.dimensions != inner_dims for t in elem_types):
                 self.errors.err_ctx(ctx, "Arreglo irregular: dimensiones distintas entre elementos.")
-                return self._set(ctx, ArrayType(Type.NULL, dims))
+                return self._set(ctx, ArrayType(Type.NULL, inner_dims + 1))
 
             base = elem_types[0].base
             for t in elem_types[1:]:
                 ub = self._unify_base(base, t.base)
                 if ub is None:
                     self.errors.err_ctx(ctx, f"Tipos incompatibles en arreglo: {base} y {t.base}")
-                    return self._set(ctx, ArrayType(Type.NULL, dims))
+                    return self._set(ctx, ArrayType(Type.NULL, inner_dims + 1))
                 base = ub
 
-            return self._set(ctx, ArrayType(base, dims))
+            return self._set(ctx, ArrayType(base, inner_dims + 1))
 
         else:
             base = elem_types[0]
@@ -260,8 +218,8 @@ class TypeChecker(CompiscriptVisitor):
                     self.errors.err_ctx(ctx, f"Tipos incompatibles en arreglo: {base} y {t}")
                     return self._set(ctx, ArrayType(Type.NULL, 1))
                 base = ub
-
             return self._set(ctx, ArrayType(base, 1))
+
 
     
     # VISIT de variables
@@ -394,7 +352,6 @@ class TypeChecker(CompiscriptVisitor):
 
     # Varibales Arrays
     def visitIndexExpr(self, ctx):
-        print(list[ctx.parentCtx.getChild(0).getText()])
         recv_ty = self.visit(ctx.parentCtx.getChild(0))
         idx_ty  = self.visit(ctx.expression())
 
@@ -456,20 +413,35 @@ class TypeChecker(CompiscriptVisitor):
         callee_node = parent.getChild(0)        
         callee_val  = self.visit(callee_node)
 
-        if not isinstance(callee_val, FuncSymbol):
-            self.errors.err_ctx(ctx, "expresión no invocable")
-            return self._set(ctx, Type.NULL)
-
-        params = callee_val.params
-        if len(params) != len(args_ty):
-            self.errors.err_ctx(ctx, f"'{callee_val.name}' espera {len(params)} args, recibió {len(args_ty)}")
+        if isinstance(callee_val, FuncSymbol):
+            params = callee_val.params
+            if len(params) != len(args_ty):
+                self.errors.err_ctx(ctx, f"'{callee_val.name}' espera {len(params)} args, recibió {len(args_ty)}")
+                return self._set(ctx, callee_val.ty)
+            for i, (p, a) in enumerate(zip(params, args_ty), 1):
+                if not self._can_assign(p.ty, a):
+                    self.errors.err_ctx(ctx, f"Arg {i} de '{callee_val.name}': esperado {p.ty}, recibió {a}")
             return self._set(ctx, callee_val.ty)
 
-        for i, (p, a) in enumerate(zip(params, args_ty), 1):
-            if not self._can_assign(p.ty, a):
-                self.errors.err_ctx(ctx, f"Arg {i} de '{callee_val.name}': esperado {p.ty}, recibió {a}")
-        
-        return self._set(ctx, callee_val.ty)
+        if getattr(callee_val, "kind", "") == "class":
+            cls = callee_val
+
+            ctor = cls.resolve_member("constructor") if hasattr(cls, "resolve_member") else None
+            if ctor:
+                params = ctor.params
+                if len(params) != len(args_ty):
+                    self.errors.err_ctx(ctx, f"constructor de {cls.name} espera {len(params)} args, recibió {len(args_ty)}")
+                else:
+                    for i, (p, a) in enumerate(zip(params, args_ty), 1):
+                        if not self._can_assign(p.ty, a):
+                            self.errors.err_ctx(ctx, f"Arg {i} del constructor de {cls.name}: esperado {p.ty}, recibió {a}")
+            elif args_ty:
+                self.errors.err_ctx(ctx, f"{cls.name} no tiene constructor que acepte {len(args_ty)} args")
+
+            return self._set(ctx, cls)
+
+        self.errors.err_ctx(ctx, "expresión no invocable")
+        return self._set(ctx, Type.NULL)
 
     def visitPrimaryExpr(self, ctx):
         if ctx.getChildCount() == 3 and ctx.getChild(0).getText() == '(' and ctx.getChild(2).getText() == ')':
@@ -490,6 +462,66 @@ class TypeChecker(CompiscriptVisitor):
             self.errors.err_ctx(ctx, "Uso de 'this' fuera de una clase")
             return self._set(ctx, Type.NULL)
         return self._set(ctx, sym.ty)
+    
+    def visitPropertyAccessExpr(self, ctx):
+        parent = ctx.parentCtx
+        recv_node = parent.getChild(0) if parent and parent.getChildCount() > 0 else None
+        recv_ty = self.visit(recv_node) if recv_node else Type.NULL
+
+        prop = ctx.Identifier().getText() if hasattr(ctx, "Identifier") and ctx.Identifier() \
+           else ctx.getChild(1).getText()
+
+        if not (hasattr(recv_ty, "kind") and recv_ty.kind == "class"):
+            self.errors.err_ctx(ctx, f"No se puede acceder propiedad '{prop}' sobre tipo {recv_ty}")
+            return self._set(ctx, Type.NULL)
+
+        psym = recv_ty.resolve_member(prop) if hasattr(recv_ty, "resolve_member") \
+           else (recv_ty.scope.resolve(prop) if getattr(recv_ty, "scope", None) else None)
+
+
+        psym = recv_ty.resolve_member(prop)
+        if not psym:
+            self.errors.err_ctx(ctx, f"Propiedad '{prop}' no existe")
+            return self._set(ctx, Type.NULL)
+        
+        return self._set(ctx, psym if getattr(psym, "kind", "") == "func" else psym.ty)
+
+    # def visi
+
+    def visitNewExpr(self, ctx):
+        name = ctx.Identifier().getText()
+
+        if not name:
+            return self._set(ctx, Type.NULL)
+
+        sym = self.current.resolve(name)
+        if not sym or getattr(sym, "kind", "") != "class":
+            self.errors.err_ctx(ctx, f"Tipo de clase '{name}' no encontrado")
+            return self._set(ctx, Type.NULL)
+
+        args = ctx.arguments()
+        if isinstance(args, list):       
+            args = args[0] if args else None
+
+        exprs = args.expression() if (args and hasattr(args, "expression")) else []
+        args_ty = [self.visit(e) for e in exprs]
+
+        ctor = self._class_member(sym, "constructor")
+
+        if ctor:
+            params = ctor.params
+            if len(params) != len(args_ty):
+                self.errors.err_ctx(ctx,
+                    f"constructor de {name} espera {len(params)} args, recibió {len(args_ty)}")
+            else:
+                for i, (p, a) in enumerate(zip(params, args_ty), 1):
+                    if not self._can_assign(p.ty, a):
+                        self.errors.err_ctx(ctx,
+                            f"Arg {i} del constructor de {name}: esperado {p.ty}, recibió {a}")
+        elif args_ty:
+            self.errors.err_ctx(ctx, f"{name} no tiene constructor que acepte {len(args_ty)} args")
+
+        return self._set(ctx, sym)
 
     # ADD
     def visitAdditiveExpr(self, ctx):
@@ -520,8 +552,8 @@ class TypeChecker(CompiscriptVisitor):
         dims = text.count("[]")
         
         base_name = text.replace("[]", "")
-        
-        base = {
+
+        prim = {
             "int": Type.INT, "integer": Type.INT,
             "float": Type.FLOAT,
             "bool": Type.BOOL, "boolean": Type.BOOL,
@@ -529,12 +561,16 @@ class TypeChecker(CompiscriptVisitor):
             "void": Type.VOID,
             "null": Type.NULL
         }.get(base_name, None)
-        
-        if base is None:
-            raise Exception(f"Tipo desconocido '{base_name}'")
-        
-        if dims > 0:
-            return ArrayType(base, dims)
+
+        if prim is not None:
+            base = prim
         else:
-            return base
+            sym = self.current.resolve(base_name)
+            if isinstance(sym, ClassSymbol):
+                base = sym
+            else:
+                self.errors.err_ctx(tctx, f"Tipo desconocido '{base_name}'")
+                base = Type.NULL
+
+        return ArrayType(base, dims) if dims > 0 else base
     

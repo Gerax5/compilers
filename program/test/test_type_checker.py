@@ -232,3 +232,67 @@ def test_assignment_array_element():
     tc, errors  = type_check(stb, errors, parser, tree)
 
     assert errors_contain(errors, "Asignación incompatible en arreglo: Type.INT = Type.STRING")
+
+def test_class_inheritance():
+    src = """
+    class A {
+        function m(): void {}
+    }
+
+    class B: A {
+        function n(): void {
+            this.m();
+        }
+    }
+    """
+    parser, tree = parse_src(src)
+    stb, errors = build_symbols(tree)
+    tc, errors  = type_check(stb, errors, parser, tree)
+
+    assert not errors.errors
+
+def test_initialization_class_instance():
+    src = """
+    class C {
+        let x: integer;
+    }
+
+    let c: C = new C();
+    """
+    parser, tree = parse_src(src)
+    stb, errors = build_symbols(tree)
+    tc, errors  = type_check(stb, errors, parser, tree)
+
+    assert not errors.errors
+
+def test_initialization_class_instance_type_mismatch():
+    src = """
+    class C {
+        let x: integer;
+    }
+
+    let c: C = new C();
+    c.x = "hello";
+    """
+    parser, tree = parse_src(src)
+    stb, errors = build_symbols(tree)
+    tc, errors  = type_check(stb, errors, parser, tree)
+
+    assert errors_contain(errors, "Asignación incompatible a 'x': Type.INT = Type.STRING")
+
+def test_initialization_class_with_no_args():
+    src = """
+    class C {
+        let x: integer;
+        function constructor(args: integer) {
+            this.x = args;
+        }
+    }
+
+    let c: C = new C();
+    """
+    parser, tree = parse_src(src)
+    stb, errors = build_symbols(tree)
+    tc, errors  = type_check(stb, errors, parser, tree)
+
+    assert errors_contain(errors, "constructor de C espera 1 args, recibió 0")
