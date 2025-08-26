@@ -352,3 +352,15 @@ def test_logical_or_expr():
     tc, errors  = type_check(stb, errors, parser, tree)
 
     assert not errors.errors
+
+def test_logical_not_expr():
+    src = """
+    function f(x: boolean): boolean {
+        return !x;
+    }
+    """
+    parser, tree = parse_src(src)
+    stb, errors = build_symbols(tree)
+    tc, errors  = type_check(stb, errors, parser, tree)
+
+    assert not errors.errors

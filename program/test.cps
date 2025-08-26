@@ -1,1 +1,2 @@
-let a: bool = 1 == 0;
+let b: integer = 1;
+let a: bool = !b;

@@ -635,6 +635,19 @@ class TypeChecker(CompiscriptVisitor):
         self.errors.err_ctx(ctx, f"operación {op} inválida para {left} y {right}")
         return self._set(ctx, Type.NULL)
 
+    def visitUnaryExpr(self, ctx):
+        n = ctx.getChildCount()
+
+        if n == 1:
+            return self.visit(ctx.getChild(0))
+        
+        value = self.visit(ctx.getChild(1))
+        self._expect_bool(ctx, value)
+
+        return self._set(ctx, Type.BOOL)
+
+        
+
     def _type_of(self, tctx):
         if tctx is None:
             return Type.NULL
