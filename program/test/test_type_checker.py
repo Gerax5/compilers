@@ -318,3 +318,37 @@ def test_assignment_bool_var():
     tc, errors  = type_check(stb, errors, parser, tree)
 
     assert not errors.errors
+
+
+def test_equiality_expr():
+    src = """
+        let a: bool = x == y;
+    """
+    parser, tree = parse_src(src)
+    stb, errors = build_symbols(tree)
+
+    assert not errors.errors
+
+def test_logical_and_expr():
+    src = """
+    function f(x: boolean, y: boolean): boolean {
+        return x && y;
+    }
+    """
+    parser, tree = parse_src(src)
+    stb, errors = build_symbols(tree)
+    tc, errors  = type_check(stb, errors, parser, tree)
+
+    assert not errors.errors
+
+def test_logical_or_expr():
+    src = """
+    function f(x: boolean, y: boolean): boolean {
+        return x || y;
+    }
+    """
+    parser, tree = parse_src(src)
+    stb, errors = build_symbols(tree)
+    tc, errors  = type_check(stb, errors, parser, tree)
+
+    assert not errors.errors

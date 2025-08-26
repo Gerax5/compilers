@@ -1,2 +1,1 @@
-for (let i: integer = 0; i < 3; i = i + 1) {
-}
+let a: bool = 1 == 0;

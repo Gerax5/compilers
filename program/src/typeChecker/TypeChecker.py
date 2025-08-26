@@ -573,6 +573,48 @@ class TypeChecker(CompiscriptVisitor):
         return self._set(ctx, Type.BOOL)
 
 
+    def visitEqualityExpr(self, ctx):
+        n = ctx.getChildCount()
+        if n == 1:
+            return self.visit(ctx.getChild(0))
+        
+        left = self.visit(ctx.getChild(0))
+        op = ctx.getChild(1).getText()
+        right = self.visit(ctx.getChild(2))
+
+        if not self._can_assign(left, right) and not self._can_assign(right, left):
+            self.errors.err_ctx(ctx, f"Comparación {op} entre tipos incompatibles: {left} y {right}")
+
+        return self._set(ctx, Type.BOOL)
+
+    def visitLogicalAndExpr(self, ctx):
+        n = ctx.getChildCount()
+        if n == 1:
+            return self.visit(ctx.getChild(0))
+
+        left = self.visit(ctx.getChild(0))
+        op = ctx.getChild(1).getText()
+        right = self.visit(ctx.getChild(2))
+
+        if left != Type.BOOL or right != Type.BOOL:
+            self.errors.err_ctx(ctx, f"Operación {op} requiere booleanos, recibió {left} y {right}")
+
+        return self._set(ctx, Type.BOOL)
+
+    def visitLogicalOrExpr(self, ctx):
+        n = ctx.getChildCount()
+        if n == 1:
+            return self.visit(ctx.getChild(0))
+
+        left = self.visit(ctx.getChild(0))
+        op = ctx.getChild(1).getText()
+        right = self.visit(ctx.getChild(2))
+
+        if left != Type.BOOL or right != Type.BOOL:
+            self.errors.err_ctx(ctx, f"Operación {op} requiere booleanos, recibió {left} y {right}")
+
+        return self._set(ctx, Type.BOOL)
+
     # ADD
     def visitAdditiveExpr(self, ctx):
         n = ctx.getChildCount()
