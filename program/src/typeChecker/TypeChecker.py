@@ -325,8 +325,7 @@ class TypeChecker(CompiscriptVisitor):
         name = ctx.Identifier().getText()
         ann  = getattr(ctx, "typeAnnotation", None) and ctx.typeAnnotation()
         declared_ty = self._type_of(ann.type_()) if ann else Type.NULL
-
-
+        
         sym = self.current.resolve(name)
         if not sym:
             self.errors.err_ctx(ctx, f"Interno: variable '{name}' no encontrada")
@@ -486,8 +485,6 @@ class TypeChecker(CompiscriptVisitor):
         
         return self._set(ctx, psym if getattr(psym, "kind", "") == "func" else psym.ty)
 
-    # def visi
-
     def visitNewExpr(self, ctx):
         name = ctx.Identifier().getText()
 
@@ -522,6 +519,59 @@ class TypeChecker(CompiscriptVisitor):
             self.errors.err_ctx(ctx, f"{name} no tiene constructor que acepte {len(args_ty)} args")
 
         return self._set(ctx, sym)
+
+    # FOR
+    def visitForStatement(self, ctx):
+        prev_scope = self.current
+        fscope = self.scopes.get(ctx, self.current)
+        self.current = fscope
+
+        self.loop_depth += 1
+        
+        try:
+            exprs = list(ctx.expression() or [])
+
+            if hasattr(ctx, "variableDeclaration") and ctx.variableDeclaration():
+                self.visit(ctx.variableDeclaration())
+                cond = exprs[0] if len(exprs) >= 1 else None
+                incr = exprs[1] if len(exprs) >= 2 else None
+            else:
+                init = exprs[0] if len(exprs) >= 1 else None
+                cond = exprs[1] if len(exprs) >= 2 else None
+                incr = exprs[2] if len(exprs) >= 3 else None
+                if init:
+                    self.visit(init)
+
+            if cond:
+                cond_ty = self.visit(cond)
+                print("COND", cond_ty, cond.getText())
+                self._expect_bool(cond, cond_ty)
+
+            if incr:
+                self.visit(incr)
+
+            if hasattr(ctx, "statement") and ctx.statement():
+                self.visit(ctx.statement())
+
+        finally:
+            self.loop_depth -= 1
+            self.current = prev_scope
+
+    # Bool EXPR
+    def visitRelationalExpr(self, ctx):
+        n = ctx.getChildCount()
+        if n == 1:
+            return self.visit(ctx.getChild(0))
+
+        left  = self.visit(ctx.getChild(0))
+        op    = ctx.getChild(1).getText()
+        right = self.visit(ctx.getChild(2))
+
+        if left not in (Type.INT, Type.FLOAT) or right not in (Type.INT, Type.FLOAT):
+            self.errors.err_ctx(ctx, f"Comparación {op} requiere números, recibió {left} y {right}")
+
+        return self._set(ctx, Type.BOOL)
+
 
     # ADD
     def visitAdditiveExpr(self, ctx):

@@ -296,3 +296,25 @@ def test_initialization_class_with_no_args():
     tc, errors  = type_check(stb, errors, parser, tree)
 
     assert errors_contain(errors, "constructor de C espera 1 args, recibió 0")
+
+def test_simple_bool_expr():
+    src = """
+    function f(x: integer): boolean {
+        return x > 0;
+    }
+    """
+    parser, tree = parse_src(src)
+    stb, errors = build_symbols(tree)
+    tc, errors  = type_check(stb, errors, parser, tree)
+
+    assert not errors.errors
+
+def test_assignment_bool_var():
+    src = """
+    let a: boolean = 1 < 2;
+    """
+    parser, tree = parse_src(src)
+    stb, errors = build_symbols(tree)
+    tc, errors  = type_check(stb, errors, parser, tree)
+
+    assert not errors.errors
