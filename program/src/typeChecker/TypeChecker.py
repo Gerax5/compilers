@@ -365,8 +365,8 @@ class TypeChecker(CompiscriptVisitor):
                if recv_ty.dimensions > 1 else recv_ty.base)
 
         return self._set(ctx, elem_ty)
-       
 
+    
     # Funciones y clases
     def visitFunctionDeclaration(self, ctx):
         prev_scope = self.current
@@ -382,6 +382,17 @@ class TypeChecker(CompiscriptVisitor):
         self.fn_ret_stack.pop()
         self.current = prev_scope
         return r
+    
+    def visitParameter(self, ctx): # REVISAR
+        ty_ctx = ctx.type_() if hasattr(ctx, "type_") else None
+        ty = self._type_of(ty_ctx) if ty_ctx else Type.NULL
+        if ty == Type.VOID:
+            self.errors.err_ctx(ctx, "Un parámetro no puede ser de tipo void")
+        return ty
+
+    def visitParameters(self, ctx): # REVISAR
+        params = ctx.parameter() or []
+        return [self.visit(p) for p in params]
 
     def visitReturnStatement(self, ctx):
         expected = self.fn_ret_stack[-1] if self.fn_ret_stack else Type.VOID
@@ -396,17 +407,17 @@ class TypeChecker(CompiscriptVisitor):
             return self._set(ctx, expected)
 
         ty = self.visit(expr)
-        print(ty)
         if not self._can_assign(expected, ty):
             self.errors.err_ctx(ctx, f"return: esperado {expected}, recibido {ty}")
         return self._set(ctx, expected)
+
+    def visitArguments(self, ctx):
+        exprs = ctx.expression() or []
+        return [self.visit(e) for e in exprs]
     
     def visitCallExpr(self, ctx):
         args_ctx = ctx.arguments()
-        if isinstance(args_ctx, list):
-            args_ctx = args_ctx[0] if args_ctx else None
-        exprs = (args_ctx.expression() if (args_ctx and hasattr(args_ctx, "expression")) else [])
-        args_ty = [self.visit(e) for e in exprs]
+        args_ty = self.visit(args_ctx) if args_ctx else []
 
         parent = ctx.parentCtx
         callee_node = parent.getChild(0)        
@@ -448,7 +459,7 @@ class TypeChecker(CompiscriptVisitor):
         return self.visitChildren(ctx)
 
     # CLASES
-    def visitClassDeclaration(self, ctx):
+    def visitClassDeclaration(self, ctx): # PREGUNTAR OVERRIDE
         prev = self.current
         self.current = self.scopes.get(ctx, self.current)
         r = self.visitChildren(ctx)
@@ -544,18 +555,72 @@ class TypeChecker(CompiscriptVisitor):
 
             if cond:
                 cond_ty = self.visit(cond)
-                print("COND", cond_ty, cond.getText())
                 self._expect_bool(cond, cond_ty)
 
             if incr:
                 self.visit(incr)
 
-            if hasattr(ctx, "statement") and ctx.statement():
-                self.visit(ctx.statement())
+            if hasattr(ctx, "block") and ctx.block():
+                self.visit(ctx.block())
 
         finally:
             self.loop_depth -= 1
             self.current = prev_scope
+
+    def visitForeachStatement(self, ctx):
+        prev_scope = self.current
+        self.current = self.scopes.get(ctx, self.current)
+        self.loop_depth += 1
+
+        try:
+            coll_expr = getattr(ctx, "expression", None) and ctx.expression()
+            coll_ty = self.visit(coll_expr) if coll_expr else Type.NULL
+
+            if isinstance(coll_ty, ArrayType):
+                elem_ty = (ArrayType(coll_ty.base, coll_ty.dimensions - 1)
+                        if coll_ty.dimensions > 1 else coll_ty.base)
+            else:
+                self.errors.err_ctx(ctx, f"foreach espera un arreglo; recibió {coll_ty}")
+                elem_ty = Type.NULL
+
+            name = getattr(ctx, "Identifier", None) and ctx.Identifier().getText()
+            if name:
+                sym = self.current.resolve(name)
+                if not sym:
+                    self.errors.err_ctx(ctx, f"Interno: variable '{name}' no encontrada en foreach")
+                else:
+                    sym.ty = elem_ty
+
+            body = getattr(ctx, "block", None) and ctx.block()
+            if body:
+                self.visit(body)
+
+        finally:
+            self.loop_depth -= 1
+            self.current = prev_scope
+
+        return None
+
+    def visitContinueStatement(self, ctx):
+        if self.loop_depth <= 0:
+            self.errors.err_ctx(ctx, "'continue' fuera de un bucle")
+        return None
+    
+    def visitBreakStatement(self, ctx):
+        # válido si estamos dentro de un ciclo o de un switch
+        if self.loop_depth == 0 and self.switch_depth == 0:
+            self.errors.err_ctx(ctx, "break fuera de un ciclo o switch")
+        return None
+
+
+    # IF
+    def visitIfStatement(self, ctx):
+        cond = ctx.expression()
+        cond_ty = self.visit(cond) if cond else Type.NULL
+        self._expect_bool(cond or ctx, cond_ty)
+        body = ctx.block()
+        if len(body) >= 1: self.visit(body[0])
+        if len(body) >= 2: self.visit(body[1])
 
     # Bool EXPR
     def visitRelationalExpr(self, ctx):
@@ -645,6 +710,15 @@ class TypeChecker(CompiscriptVisitor):
         self._expect_bool(ctx, value)
 
         return self._set(ctx, Type.BOOL)
+    
+    # Types
+    def visitBaseType(self, ctx):
+        ty = self._type_of(ctx)
+        return self._set(ctx, ty)
+
+    def visitType(self, ctx):
+        ty = self._type_of(ctx)
+        return self._set(ctx, ty)
 
         
 
