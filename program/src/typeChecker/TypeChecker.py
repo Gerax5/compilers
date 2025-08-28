@@ -700,6 +700,11 @@ class TypeChecker(CompiscriptVisitor):
         self.errors.err_ctx(ctx, f"operación {op} inválida para {left} y {right}")
         return self._set(ctx, Type.NULL)
 
+    def visitMultiplicativeExpr(self, ctx):
+        print(list[ctx.getChild()])
+        # CHECHAAAAA
+        pass
+
     def visitUnaryExpr(self, ctx):
         n = ctx.getChildCount()
 
