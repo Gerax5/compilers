@@ -7,8 +7,6 @@
 In the image below you’ll find the list of missing visit\* methods that must be implemented in `TypeChecker`:  
 ![alt text](image.png)
 
-- [] visitMultiplicativeExpr
-
 ---
 
 ## 🗂 Files to edit
