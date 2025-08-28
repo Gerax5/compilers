@@ -701,7 +701,7 @@ class TypeChecker(CompiscriptVisitor):
         return self._set(ctx, Type.NULL)
 
     def visitMultiplicativeExpr(self, ctx):
-        print(list[ctx.getChild()])
+        print(list[ctx.getChild(0)])
         # CHECHAAAAA
         pass
 
