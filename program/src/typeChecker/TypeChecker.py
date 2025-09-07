@@ -855,6 +855,14 @@ class TypeChecker(CompiscriptVisitor):
         return None
 
 
+    def visitDefaultCase(self, ctx):
+        # 'default' ':' statement*
+        for st in (ctx.statement() or []):
+            self.visit(st)
+        return None
+    
+    
+
     # Types
     def visitBaseType(self, ctx):
         ty = self._type_of(ctx)

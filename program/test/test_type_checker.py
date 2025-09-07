@@ -649,3 +649,20 @@ def test_switch_case_expr_not_bool_error():
     stb, errors = build_symbols(tree)
     tc, errors  = type_check(stb, errors, parser, tree)
     assert errors_contain(errors, "Se esperaba bool")
+
+# visitDefaultCase
+
+def test_default_case_executes_statements_typechecked():
+    src = """
+    function f(): void {
+        let x: integer;
+        switch (true) {
+            default:
+                x = "hola";  // error: int = string
+        }
+    }
+    """
+    parser, tree = parse_src(src)
+    stb, errors = build_symbols(tree)
+    tc, errors  = type_check(stb, errors, parser, tree)
+    assert errors_contain(errors, "Asignación incompatible")
