@@ -666,3 +666,39 @@ def test_default_case_executes_statements_typechecked():
     stb, errors = build_symbols(tree)
     tc, errors  = type_check(stb, errors, parser, tree)
     assert errors_contain(errors, "Asignación incompatible")
+
+
+# visitTryCatchStatement
+
+def test_try_catch_ok():
+    src = """
+    function f(): void {
+        try { 
+            let x: integer; 
+            x = 1; 
+        } catch (e) { 
+            // nada
+        }
+    }
+    """
+    parser, tree = parse_src(src)
+    stb, errors = build_symbols(tree)
+    tc, errors  = type_check(stb, errors, parser, tree)
+    assert not errors.errors
+
+
+def test_try_catch_type_error_inside_try_is_reported():
+    src = """
+    function f(): void {
+        try { 
+            let x: integer; 
+            x = "a";   // debe reportar asignación incompatible
+        } catch (e) { 
+            // nada
+        }
+    }
+    """
+    parser, tree = parse_src(src)
+    stb, errors = build_symbols(tree)
+    tc, errors  = type_check(stb, errors, parser, tree)
+    assert errors_contain(errors, "Asignación incompatible")

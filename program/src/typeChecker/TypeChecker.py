@@ -861,7 +861,17 @@ class TypeChecker(CompiscriptVisitor):
             self.visit(st)
         return None
     
-    
+
+    def visitTryCatchStatement(self, ctx):
+        # try block 'catch' '(' Identifier ')' block
+        blocks = ctx.block() or []
+        if len(blocks) >= 1:
+            self.visit(blocks[0])  # try { ... }
+        if len(blocks) >= 2:
+            self.visit(blocks[1])  # catch (...) { ... }
+        return None
+
+
 
     # Types
     def visitBaseType(self, ctx):
