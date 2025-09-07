@@ -778,6 +778,12 @@ class TypeChecker(CompiscriptVisitor):
         self.errors.err_ctx(ctx, f"Tipos incompatibles en ternario: {then_ty} y {else_ty}")
         return self._set(ctx, Type.NULL)
 
+    def visitExprNoAssign(self, ctx):
+        # Alt de assignmentExpr: conditionalExpr # ExprNoAssign
+        ty = self.visit(ctx.getChild(0))
+        return self._set(ctx, ty)
+
+
     
     # Types
     def visitBaseType(self, ctx):

@@ -445,3 +445,15 @@ def test_ternary_incompatible_branches_is_error():
     stb, errors = build_symbols(tree)
     tc, errors  = type_check(stb, errors, parser, tree)
     assert errors_contain(errors, "Tipos incompatibles en ternario")
+
+
+def test_expr_no_assign_passthrough_additive():
+    src = """
+    function f(): integer { 
+        return 1 + 2; 
+    }
+    """
+    parser, tree = parse_src(src)
+    stb, errors = build_symbols(tree)
+    tc, errors  = type_check(stb, errors, parser, tree)
+    assert not errors.errors
