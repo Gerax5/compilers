@@ -364,3 +364,38 @@ def test_logical_not_expr():
     tc, errors  = type_check(stb, errors, parser, tree)
 
     assert not errors.errors
+
+def test_mul_int_int():
+    src = "function f(): integer { return 2 * 3; }"
+    parser, tree = parse_src(src)
+    stb, errors = build_symbols(tree)
+    tc, errors  = type_check(stb, errors, parser, tree)
+    assert not errors.errors  # 2*3 es int -> OK
+
+def test_mul_int_float_promotes_to_float():
+    src = "function f(): float { return 2 * 3.5; }"
+    parser, tree = parse_src(src)
+    stb, errors = build_symbols(tree)
+    tc, errors  = type_check(stb, errors, parser, tree)
+    assert not errors.errors  # promoción a float -> OK
+
+def test_div_int_int_is_float():
+    src = "function f(): float { return 5 / 2; }"
+    parser, tree = parse_src(src)
+    stb, errors = build_symbols(tree)
+    tc, errors  = type_check(stb, errors, parser, tree)
+    assert not errors.errors  # tu regla hace / -> float
+
+def test_mod_int_int_ok():
+    src = "function f(): integer { return 5 % 2; }"
+    parser, tree = parse_src(src)
+    stb, errors = build_symbols(tree)
+    tc, errors  = type_check(stb, errors, parser, tree)
+    assert not errors.errors  # % entre enteros -> OK
+
+def test_mod_with_float_is_error():
+    src = "function f(): integer { return 5.0 % 2; }"
+    parser, tree = parse_src(src)
+    stb, errors = build_symbols(tree)
+    tc, errors  = type_check(stb, errors, parser, tree)
+    assert any("% requiere enteros" in str(e) for e in errors.errors)

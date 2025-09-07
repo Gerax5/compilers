@@ -701,9 +701,36 @@ class TypeChecker(CompiscriptVisitor):
         return self._set(ctx, Type.NULL)
 
     def visitMultiplicativeExpr(self, ctx):
-        print(list[ctx.getChild(0)])
-        # CHECHAAAAA
-        pass
+        # print(list[ctx.getChild(0)])
+        n = ctx.getChildCount()
+
+        if n == 1:
+            return self.visit(ctx.getChild(0))
+
+        left = self.visit(ctx.getChild(0))
+        op = ctx.getChild(1).getText()
+        right = self.visit(ctx.getChild(2)) 
+
+        if op == "%":
+            if left == Type.INT and right == Type.INT:
+                return self._set(ctx, Type.INT)
+            self.errors.err_ctx(ctx, f"Operación % requiere enteros, recibió {left} y {right}")
+            # Para evitar cascada de errores, asumimos que el resultado pretendido era entero
+            return self._set(ctx, Type.INT)
+
+        elif op in ('*', '/'):
+            if left in (Type.INT, Type.FLOAT) and right in (Type.INT, Type.FLOAT):
+                if op == '/':
+                    # División produce float (int/int -> float también)
+                    return self._set(ctx, Type.FLOAT)
+                # Multiplicación: promoción a float si alguno es float
+                return self._set(ctx, Type.FLOAT if Type.FLOAT in (left, right) else Type.INT)
+
+            self.errors.err_ctx(ctx, f"Operación {op} inválida para {left} y {right}")
+            return self._set(ctx, Type.NULL)
+        
+        self.errors.err_ctx(ctx, f"Operador desconocido: {op}")
+        return self._set(ctx, Type.NULL)
 
     def visitUnaryExpr(self, ctx):
         n = ctx.getChildCount()

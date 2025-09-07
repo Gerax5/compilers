@@ -161,8 +161,14 @@ baseType: 'boolean' | 'integer' | 'string' | Identifier;
 // ------------------
 
 Literal
-  : IntegerLiteral
+  : FloatLiteral
+  | IntegerLiteral
   | StringLiteral
+  ;
+
+FloatLiteral
+  : [0-9]+ '.' [0-9]*
+  | '.' [0.9]+
   ;
 
 IntegerLiteral: [0-9]+;
