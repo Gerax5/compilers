@@ -711,3 +711,13 @@ def test_expression_statement_undeclared_identifier_reports_error():
     stb, errors = build_symbols(tree)
     tc, errors  = type_check(stb, errors, parser, tree)
     assert errors_contain(errors, "'y' no declarado")
+
+# visitPrintStatement
+
+def test_print_statement_propagates_inner_expr_errors():
+    src = "print(1 + true);"
+    parser, tree = parse_src(src)
+    stb, errors = build_symbols(tree)
+    tc, errors  = type_check(stb, errors, parser, tree)
+    # Debe reportar el error del + inválido dentro de print(...)
+    assert any("operación +" in e and "inválida" in e for e in errors.errors)

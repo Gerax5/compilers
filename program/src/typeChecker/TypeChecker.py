@@ -879,8 +879,14 @@ class TypeChecker(CompiscriptVisitor):
         if expr:
             self.visit(expr)
         return None
-    
-    
+
+    def visitPrintStatement(self, ctx):
+        # print(...) acepta cualquier tipo, pero debemos visitar la expresión
+        # para que se verifiquen tipos internos (p. ej. 1 + true)
+        expr = getattr(ctx, "expression", None) and ctx.expression()
+        if expr:
+            self.visit(expr)
+        return None    
 
 
 # Clases / tipos auxiliares
