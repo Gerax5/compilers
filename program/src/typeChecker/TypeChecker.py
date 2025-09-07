@@ -812,6 +812,22 @@ class TypeChecker(CompiscriptVisitor):
             self.loop_depth -= 1
         return None
 
+    def visitDoWhileStatement(self, ctx):
+        # do block 'while' '(' expression ')' ';'
+        self.loop_depth += 1
+        try:
+            body = getattr(ctx, "block", None) and ctx.block()
+            if body:
+                self.visit(body)
+        finally:
+            self.loop_depth -= 1
+
+        cond = ctx.expression()
+        cond_ty = self.visit(cond) if cond else Type.NULL
+        self._expect_bool(cond or ctx, cond_ty)
+        return None
+
+
     # Types
     def visitBaseType(self, ctx):
         ty = self._type_of(ctx)

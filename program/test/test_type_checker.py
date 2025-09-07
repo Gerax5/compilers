@@ -541,3 +541,28 @@ def test_while_condition_not_bool_error():
     stb, errors = build_symbols(tree)
     tc, errors  = type_check(stb, errors, parser, tree)
     assert errors_contain(errors, "Se esperaba bool")
+
+# visitDoWhileStatement
+
+def test_do_while_condition_bool_ok():
+    src = """
+    function f(): void {
+        do { } while (true);
+    }
+    """
+    parser, tree = parse_src(src)
+    stb, errors = build_symbols(tree)
+    tc, errors  = type_check(stb, errors, parser, tree)
+    assert not errors.errors
+
+
+def test_do_while_condition_not_bool_error():
+    src = """
+    function f(): void {
+        do { } while (2);
+    }
+    """
+    parser, tree = parse_src(src)
+    stb, errors = build_symbols(tree)
+    tc, errors  = type_check(stb, errors, parser, tree)
+    assert errors_contain(errors, "Se esperaba bool")
