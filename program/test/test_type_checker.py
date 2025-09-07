@@ -721,3 +721,19 @@ def test_print_statement_propagates_inner_expr_errors():
     tc, errors  = type_check(stb, errors, parser, tree)
     # Debe reportar el error del + inválido dentro de print(...)
     assert any("operación +" in e and "inválida" in e for e in errors.errors)
+
+# visitClassMember
+
+def test_class_member_var_and_method_checked():
+    src = """
+    class D {
+        let x: integer;
+        function m(): void { this.x = 1; }
+        const k: integer = 5;
+    }
+    """
+    parser, tree = parse_src(src)
+    stb, errors = build_symbols(tree)
+    tc, errors  = type_check(stb, errors, parser, tree)
+    # No debería haber errores: se visitan los tres tipos de miembros
+    assert not errors.errors

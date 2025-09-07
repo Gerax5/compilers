@@ -891,6 +891,17 @@ class TypeChecker(CompiscriptVisitor):
 
 # Clases / tipos auxiliares
 
+    def visitClassMember(self, ctx):
+        # classMember: functionDeclaration | variableDeclaration | constantDeclaration
+        if hasattr(ctx, "functionDeclaration") and ctx.functionDeclaration():
+            return self.visit(ctx.functionDeclaration())
+        if hasattr(ctx, "variableDeclaration") and ctx.variableDeclaration():
+            return self.visit(ctx.variableDeclaration())
+        if hasattr(ctx, "constantDeclaration") and ctx.constantDeclaration():
+            return self.visit(ctx.constantDeclaration())
+        return self.visitChildren(ctx)
+
+
 
     # Types
     def visitBaseType(self, ctx):
