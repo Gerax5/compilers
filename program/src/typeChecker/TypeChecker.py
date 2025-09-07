@@ -788,8 +788,12 @@ class TypeChecker(CompiscriptVisitor):
         ty = self.visit(ctx.getChild(0))
         return self._set(ctx, ty)
 
-
-
+    def visitPropertyAssignExpr(self, ctx):
+        # Alt: lhs=leftHandSide '.' Identifier '=' assignmentExpr
+        recv_ty = self.visit(ctx.leftHandSide())
+        prop    = ctx.Identifier().getText()
+        rhs_ty  = self.visit(ctx.assignmentExpr())
+        return self._apply_property_assignment(recv_ty, prop, rhs_ty, ctx)
     
     # Types
     def visitBaseType(self, ctx):

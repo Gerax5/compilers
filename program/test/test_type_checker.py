@@ -471,3 +471,44 @@ def test_expression_rule_passthrough_literal():
     stb, errors = build_symbols(tree)
     tc, errors  = type_check(stb, errors, parser, tree)
     assert not errors.errors
+
+# visitPropertyAssignExpr
+
+def test_property_assign_ok():
+    src = """
+    class C { var x: integer; }
+    function f(): void {
+        let c: C;
+        c.x = 42;
+    }
+    """
+    parser, tree = parse_src(src)
+    stb, errors = build_symbols(tree)
+    tc, errors  = type_check(stb, errors, parser, tree)
+    assert not errors.errors
+
+def test_property_assign_wrong_type_error():
+    src = """
+    class C { var x: integer; }
+    function f(): void {
+        let c: C;
+        c.x = 3.5;   // error: int = float
+    }
+    """
+    parser, tree = parse_src(src)
+    stb, errors = build_symbols(tree)
+    tc, errors  = type_check(stb, errors, parser, tree)
+    assert errors_contain(errors, "Asignación incompatible") or errors_contain(errors, "incompatible")
+
+def test_property_assign_missing_property_error():
+    src = """
+    class C { var x: integer; }
+    function f(): void {
+        let c: C;
+        c.y = 1;     // error: no existe
+    }
+    """
+    parser, tree = parse_src(src)
+    stb, errors = build_symbols(tree)
+    tc, errors  = type_check(stb, errors, parser, tree)
+    assert errors_contain(errors, "Propiedad") and errors_contain(errors, "no existe")
