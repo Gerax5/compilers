@@ -844,6 +844,16 @@ class TypeChecker(CompiscriptVisitor):
             self.switch_depth -= 1
         return None
 
+    def visitSwitchCase(self, ctx):
+        # 'case' expression ':' statement*
+        ex = ctx.expression()
+        ex_ty = self.visit(ex) if ex else Type.NULL
+        self._expect_bool(ex or ctx, ex_ty)
+
+        for st in (ctx.statement() or []):
+            self.visit(st)
+        return None
+
 
     # Types
     def visitBaseType(self, ctx):

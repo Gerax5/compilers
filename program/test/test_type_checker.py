@@ -615,3 +615,37 @@ def test_switch_continue_is_error():
     stb, errors = build_symbols(tree)
     tc, errors  = type_check(stb, errors, parser, tree)
     assert errors_contain(errors, "'continue' fuera de un bucle")
+
+# visitSwitchCase
+
+def test_switch_case_expr_bool_ok():
+    src = """
+    function f(): void {
+        switch (true) {
+            case false:
+                ;
+            default: ;
+        }
+    }
+    """
+    parser, tree = parse_src(src)
+    stb, errors = build_symbols(tree)
+    tc, errors  = type_check(stb, errors, parser, tree)
+    assert not errors.errors
+
+
+def test_switch_case_expr_not_bool_error():
+    src = """
+    function f(): void {
+        switch (true) {
+            case 1:
+                ;
+            default:
+                ;
+        }
+    }
+    """
+    parser, tree = parse_src(src)
+    stb, errors = build_symbols(tree)
+    tc, errors  = type_check(stb, errors, parser, tree)
+    assert errors_contain(errors, "Se esperaba bool")
