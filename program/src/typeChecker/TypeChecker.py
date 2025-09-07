@@ -871,6 +871,19 @@ class TypeChecker(CompiscriptVisitor):
             self.visit(blocks[1])  # catch (...) { ... }
         return None
 
+# Sentencias simples
+
+    def visitExpressionStatement(self, ctx):
+        # Solo evalúa la expresión para que se disparen las validaciones
+        expr = getattr(ctx, "expression", None) and ctx.expression()
+        if expr:
+            self.visit(expr)
+        return None
+    
+    
+
+
+# Clases / tipos auxiliares
 
 
     # Types

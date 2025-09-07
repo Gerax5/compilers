@@ -702,3 +702,12 @@ def test_try_catch_type_error_inside_try_is_reported():
     stb, errors = build_symbols(tree)
     tc, errors  = type_check(stb, errors, parser, tree)
     assert errors_contain(errors, "Asignación incompatible")
+
+# visitExpressionStatement
+
+def test_expression_statement_undeclared_identifier_reports_error():
+    src = "y;"
+    parser, tree = parse_src(src)
+    stb, errors = build_symbols(tree)
+    tc, errors  = type_check(stb, errors, parser, tree)
+    assert errors_contain(errors, "'y' no declarado")
