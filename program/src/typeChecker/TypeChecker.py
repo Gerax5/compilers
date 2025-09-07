@@ -782,6 +782,12 @@ class TypeChecker(CompiscriptVisitor):
         # Alt de assignmentExpr: conditionalExpr # ExprNoAssign
         ty = self.visit(ctx.getChild(0))
         return self._set(ctx, ty)
+    
+    def visitExpression(self, ctx):
+        # Regla: expression : assignmentExpr
+        ty = self.visit(ctx.getChild(0))
+        return self._set(ctx, ty)
+
 
 
     
