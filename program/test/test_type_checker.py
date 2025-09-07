@@ -512,3 +512,32 @@ def test_property_assign_missing_property_error():
     stb, errors = build_symbols(tree)
     tc, errors  = type_check(stb, errors, parser, tree)
     assert errors_contain(errors, "Propiedad") and errors_contain(errors, "no existe")
+
+# visitWhileStatement
+
+def test_while_condition_bool_ok():
+    src = """
+    function f(): void {
+        let x: integer;
+        x = 0;
+        while (true) {
+            x = x + 1;
+        }
+    }
+    """
+    parser, tree = parse_src(src)
+    stb, errors = build_symbols(tree)
+    tc, errors  = type_check(stb, errors, parser, tree)
+    assert not errors.errors
+
+
+def test_while_condition_not_bool_error():
+    src = """
+    function f(): void {
+        while (1) { }
+    }
+    """
+    parser, tree = parse_src(src)
+    stb, errors = build_symbols(tree)
+    tc, errors  = type_check(stb, errors, parser, tree)
+    assert errors_contain(errors, "Se esperaba bool")
