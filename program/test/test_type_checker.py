@@ -365,6 +365,7 @@ def test_logical_not_expr():
 
     assert not errors.errors
 
+#  visitMultiplicativeExpr
 def test_mul_int_int():
     src = "function f(): integer { return 2 * 3; }"
     parser, tree = parse_src(src)
@@ -399,3 +400,48 @@ def test_mod_with_float_is_error():
     stb, errors = build_symbols(tree)
     tc, errors  = type_check(stb, errors, parser, tree)
     assert any("% requiere enteros" in str(e) for e in errors.errors)
+
+# visitTernaryExpr
+def test_ternary_basic_int_ok():
+    src = """
+    function f(): integer { 
+        return true ? 1 : 2; 
+    }
+    """
+    parser, tree = parse_src(src)
+    stb, errors = build_symbols(tree)
+    tc, errors  = type_check(stb, errors, parser, tree)
+    assert not errors.errors
+
+def test_ternary_numeric_promotion_to_float():
+    src = """
+    function f(): float { 
+        return false ? 1.0 : 2; 
+    }
+    """
+    parser, tree = parse_src(src)
+    stb, errors = build_symbols(tree)
+    tc, errors  = type_check(stb, errors, parser, tree)
+    assert not errors.errors
+
+def test_ternary_condition_not_bool_is_error():
+    src = """
+    function f(): integer { 
+        return 1 ? 10 : 20; 
+    }
+    """
+    parser, tree = parse_src(src)
+    stb, errors = build_symbols(tree)
+    tc, errors  = type_check(stb, errors, parser, tree)
+    assert errors_contain(errors, "Se esperaba bool")
+
+def test_ternary_incompatible_branches_is_error():
+    src = """
+    function f(): integer { 
+        return true ? 1 : "x"; 
+    }
+    """
+    parser, tree = parse_src(src)
+    stb, errors = build_symbols(tree)
+    tc, errors  = type_check(stb, errors, parser, tree)
+    assert errors_contain(errors, "Tipos incompatibles en ternario")

@@ -742,6 +742,42 @@ class TypeChecker(CompiscriptVisitor):
         self._expect_bool(ctx, value)
 
         return self._set(ctx, Type.BOOL)
+
+    def visitTernaryExpr(self, ctx):
+        # Regla: conditionalExpr : logicalOrExpr ('?' expression ':' expression)?
+        n = ctx.getChildCount()
+        if n == 1:
+            return self.visit(ctx.getChild(0))
+
+        # Con operador ternario
+        cond_ty = self.visit(ctx.getChild(0))
+        self._expect_bool(ctx, cond_ty)
+
+        then_ty = self.visit(ctx.getChild(2))
+        else_ty = self.visit(ctx.getChild(4))
+
+        # Igualdad exacta -> ese tipo
+        if then_ty == else_ty:
+            return self._set(ctx, then_ty)
+
+        # Arreglos: mismas dimensiones y unificación de base numérica
+        if self._is_array(then_ty) and self._is_array(else_ty):
+            if then_ty.dimensions == else_ty.dimensions:
+                ub = self._unify_base(then_ty.base, else_ty.base)
+                if ub is not None:
+                    return self._set(ctx, ArrayType(ub, then_ty.dimensions))
+            self.errors.err_ctx(ctx, f"Tipos incompatibles en ternario: {then_ty} y {else_ty}")
+            return self._set(ctx, ArrayType(Type.NULL, then_ty.dimensions))
+
+        # Primitivos numéricos: INT/FLOAT -> promo
+        ub = self._unify_base(then_ty, else_ty)
+        if ub is not None:
+            return self._set(ctx, ub)
+
+        # Incompatibles (ej. int vs string; clase vs int, etc.)
+        self.errors.err_ctx(ctx, f"Tipos incompatibles en ternario: {then_ty} y {else_ty}")
+        return self._set(ctx, Type.NULL)
+
     
     # Types
     def visitBaseType(self, ctx):
