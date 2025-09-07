@@ -827,6 +827,23 @@ class TypeChecker(CompiscriptVisitor):
         self._expect_bool(cond or ctx, cond_ty)
         return None
 
+    def visitSwitchStatement(self, ctx):
+        # switch '(' expression ')' '{' switchCase* defaultCase? '}'
+        cond = ctx.expression()
+        cond_ty = self.visit(cond) if cond else Type.NULL
+        self._expect_bool(cond or ctx, cond_ty)
+
+        self.switch_depth += 1
+        try:
+            for sc in (ctx.switchCase() or []):
+                self.visit(sc)
+            d = getattr(ctx, "defaultCase", None) and ctx.defaultCase()
+            if d:
+                self.visit(d)
+        finally:
+            self.switch_depth -= 1
+        return None
+
 
     # Types
     def visitBaseType(self, ctx):

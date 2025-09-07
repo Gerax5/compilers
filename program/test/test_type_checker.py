@@ -566,3 +566,52 @@ def test_do_while_condition_not_bool_error():
     stb, errors = build_symbols(tree)
     tc, errors  = type_check(stb, errors, parser, tree)
     assert errors_contain(errors, "Se esperaba bool")
+
+# visitSwitchStatement
+
+def test_switch_condition_bool_ok_and_break_allowed():
+    src = """
+    function f(): void {
+        switch (true) {
+            case true:
+                break;   // permitido dentro de switch
+            default:
+                // nada
+        }
+    }
+    """
+    parser, tree = parse_src(src)
+    stb, errors = build_symbols(tree)
+    tc, errors  = type_check(stb, errors, parser, tree)
+    assert not errors.errors
+
+
+def test_switch_condition_not_bool_error():
+    src = """
+    function f(): void {
+        switch (1) {
+            default: ;
+        }
+    }
+    """
+    parser, tree = parse_src(src)
+    stb, errors = build_symbols(tree)
+    tc, errors  = type_check(stb, errors, parser, tree)
+    assert errors_contain(errors, "Se esperaba bool")
+
+
+def test_switch_continue_is_error():
+    src = """
+    function f(): void {
+        switch (true) {
+            case true:
+                continue;  // continue no es válido en switch
+            default:
+                ;
+        }
+    }
+    """
+    parser, tree = parse_src(src)
+    stb, errors = build_symbols(tree)
+    tc, errors  = type_check(stb, errors, parser, tree)
+    assert errors_contain(errors, "'continue' fuera de un bucle")
