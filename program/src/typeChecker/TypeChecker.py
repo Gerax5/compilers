@@ -134,7 +134,18 @@ class TypeChecker(CompiscriptVisitor):
             return sym.ty, name, sym
         ty = self.visit(base)
         return ty, None, None
+    
+    def _compatible_for_switch(self, cond_ty, case_ty):
+        if cond_ty == Type.BOOL:
+            return case_ty == Type.BOOL
 
+        if {cond_ty, case_ty} <= {Type.INT, Type.FLOAT}:
+            return True
+
+        if cond_ty == case_ty:
+            return True
+
+        return False
 
     # INITIAL
     def visitProgram(self, ctx):
@@ -840,17 +851,25 @@ class TypeChecker(CompiscriptVisitor):
 
     def visitSwitchStatement(self, ctx):
         sw = ctx.expression()
-        T = self.visit(sw)
-        # fuerza booleano en la condición del switch
-        self._expect_bool(sw or ctx, T)
+        cond_ty = self.visit(sw)
+
+        cases = list(ctx.switchCase() or [])
+
+        if not cases:
+            self._expect_bool(sw or ctx, cond_ty)
 
         self.switch_depth += 1
         try:
-            for sc in (ctx.switchCase() or []):
+            for sc in cases:
                 ce = sc.expression()
                 if ce:
-                    C = self.visit(ce)
-                    self._expect_bool(ce, C)
+                    case_ty = self.visit(ce)
+                    if not self._compatible_for_switch(cond_ty, case_ty):
+                        if cond_ty == Type.BOOL:
+                            self.errors.err_ctx(ce, f"Se esperaba bool, se obtuvo {case_ty}")
+                        else:
+                            self.errors.err_ctx(ce, f"Case incompatible con switch({cond_ty}): {case_ty}")
+
                 for st in sc.statement() or []:
                     self.visit(st)
             if ctx.defaultCase():
@@ -863,10 +882,6 @@ class TypeChecker(CompiscriptVisitor):
 
     def visitSwitchCase(self, ctx):
         # 'case' expression ':' statement*
-        ex = ctx.expression()
-        ex_ty = self.visit(ex) if ex else Type.NULL
-        self._expect_bool(ex or ctx, ex_ty)
-
         for st in (ctx.statement() or []):
             self.visit(st)
         return None

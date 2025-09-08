@@ -44,6 +44,16 @@ class SymbolTableBuilder(CompiscriptListener):
         if not self.current.define(sym):
             self.errors.err_ctx(ctx, f"Variable '{name}' redeclared in this scope")
 
+    def enterTryCatchStatement(self, ctx):
+        blocks = ctx.block() or []
+        if len(blocks) >= 2:
+            catch_block = blocks[1]
+            catch_ident = ctx.Identifier().getText() if ctx.Identifier() else None
+
+            catch_scope = self.scopes.get(catch_block, self.current)
+            if catch_ident:
+                catch_scope.define(VarSymbol(catch_ident, Type.NULL))
+
     # Functions
     def enterFunctionDeclaration(self, ctx):
         name = ctx.Identifier().getText() 
