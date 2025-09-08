@@ -737,3 +737,17 @@ def test_class_member_var_and_method_checked():
     tc, errors  = type_check(stb, errors, parser, tree)
     # No debería haber errores: se visitan los tres tipos de miembros
     assert not errors.errors
+
+
+# visitTypeAnnotation
+
+def test_type_annotation_allows_later_assignment():
+    src = """
+    let a: integer;
+    a = 1;
+    """
+    parser, tree = parse_src(src)
+    stb, errors = build_symbols(tree)
+    tc, errors  = type_check(stb, errors, parser, tree)
+    # Asignación válida a variable anotada como integer
+    assert not errors.errors

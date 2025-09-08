@@ -871,7 +871,7 @@ class TypeChecker(CompiscriptVisitor):
             self.visit(blocks[1])  # catch (...) { ... }
         return None
 
-# Sentencias simples
+    # Sentencias simples
 
     def visitExpressionStatement(self, ctx):
         # Solo evalúa la expresión para que se disparen las validaciones
@@ -889,7 +889,7 @@ class TypeChecker(CompiscriptVisitor):
         return None    
 
 
-# Clases / tipos auxiliares
+    # Clases / tipos auxiliares
 
     def visitClassMember(self, ctx):
         # classMember: functionDeclaration | variableDeclaration | constantDeclaration
@@ -901,6 +901,10 @@ class TypeChecker(CompiscriptVisitor):
             return self.visit(ctx.constantDeclaration())
         return self.visitChildren(ctx)
 
+    def visitTypeAnnotation(self, ctx):
+        ty_ctx = getattr(ctx, "type_", None) and ctx.type_()
+        ty = self._type_of(ty_ctx) if ty_ctx else Type.NULL
+        return self._set(ctx, ty)
 
 
     # Types
