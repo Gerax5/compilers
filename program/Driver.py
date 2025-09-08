@@ -1,5 +1,5 @@
 import sys
-from antlr4 import *
+from antlr4 import * # type: ignore
 from CompiscriptLexer import CompiscriptLexer
 from CompiscriptParser import CompiscriptParser
 
