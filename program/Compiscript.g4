@@ -168,7 +168,7 @@ Literal
 
 FloatLiteral
   : [0-9]+ '.' [0-9]*
-  | '.' [0.9]+
+  | '.' [0-9]+
   ;
 
 IntegerLiteral: [0-9]+;
