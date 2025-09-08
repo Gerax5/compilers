@@ -4,7 +4,7 @@ from src.utils.Scope import VarSymbol, Type, ClassSymbol, FuncSymbol, Scope
 from src.utils.Types import Type, ArrayType
 from CompiscriptListener import CompiscriptListener
 from CompiscriptParser import CompiscriptParser
-from antlr4.tree.Tree import TerminalNode
+from antlr4.tree.Tree import TerminalNode # type: ignore
 
 class TypeChecker(CompiscriptVisitor):
     def __init__(self, scopes_by_ctx, global_scope, errors, parser):
@@ -697,7 +697,7 @@ class TypeChecker(CompiscriptVisitor):
         if op == '+' and (left == Type.STRING or right == Type.STRING):
             return self._set(ctx, Type.STRING)
 
-        self.errors.err_ctx(ctx, f"operación {op} inválida para {left} y {right}")
+        self.errors.err_ctx(ctx, f"Operación {op} inválida para {left} y {right}")
         return self._set(ctx, Type.NULL)
 
     def visitMultiplicativeExpr(self, ctx):
@@ -733,15 +733,26 @@ class TypeChecker(CompiscriptVisitor):
         return self._set(ctx, Type.NULL)
 
     def visitUnaryExpr(self, ctx):
-        n = ctx.getChildCount()
-
-        if n == 1:
+        # ('-' | '!') unaryExpr | primaryExpr
+        if ctx.getChildCount() == 1:
             return self.visit(ctx.getChild(0))
-        
-        value = self.visit(ctx.getChild(1))
-        self._expect_bool(ctx, value)
 
-        return self._set(ctx, Type.BOOL)
+        op = ctx.getChild(0).getText()
+        ty = self.visit(ctx.getChild(1))
+
+        if op == '!':
+            self._expect_bool(ctx, ty)
+            return self._set(ctx, Type.BOOL)
+
+        if op == '-':
+            if ty in (Type.INT, Type.FLOAT):
+                return self._set(ctx, ty)
+            self.errors.err_ctx(ctx, f"Operador '-' requiere numérico, recibió {ty}")
+            return self._set(ctx, Type.NULL)
+
+        # fallback
+        return self.visitChildren(ctx)
+
 
     def visitTernaryExpr(self, ctx):
         # Regla: conditionalExpr : logicalOrExpr ('?' expression ':' expression)?
@@ -828,21 +839,27 @@ class TypeChecker(CompiscriptVisitor):
         return None
 
     def visitSwitchStatement(self, ctx):
-        # switch '(' expression ')' '{' switchCase* defaultCase? '}'
-        cond = ctx.expression()
-        cond_ty = self.visit(cond) if cond else Type.NULL
-        self._expect_bool(cond or ctx, cond_ty)
+        sw = ctx.expression()
+        T = self.visit(sw)
+        # fuerza booleano en la condición del switch
+        self._expect_bool(sw or ctx, T)
 
         self.switch_depth += 1
         try:
             for sc in (ctx.switchCase() or []):
-                self.visit(sc)
-            d = getattr(ctx, "defaultCase", None) and ctx.defaultCase()
-            if d:
-                self.visit(d)
+                ce = sc.expression()
+                if ce:
+                    C = self.visit(ce)
+                    self._expect_bool(ce, C)
+                for st in sc.statement() or []:
+                    self.visit(st)
+            if ctx.defaultCase():
+                for st in ctx.defaultCase().statement() or []:
+                    self.visit(st)
         finally:
             self.switch_depth -= 1
         return None
+
 
     def visitSwitchCase(self, ctx):
         # 'case' expression ':' statement*
@@ -906,6 +923,14 @@ class TypeChecker(CompiscriptVisitor):
         ty = self._type_of(ty_ctx) if ty_ctx else Type.NULL
         return self._set(ctx, ty)
 
+    def visitInitializer(self, ctx):
+        # ctx.expression() puede existir o no (por la gramática debería existir siempre).
+        ex = getattr(ctx, "expression", None) and ctx.expression()
+        if isinstance(ex, list):
+            ex = ex[0] if ex else None
+
+        ty = self.visit(ex) if ex is not None else Type.NULL
+        return self._set(ctx, ty)
 
     # Types
     def visitBaseType(self, ctx):

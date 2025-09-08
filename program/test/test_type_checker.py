@@ -1,5 +1,5 @@
 import os, sys
-from antlr4 import InputStream, CommonTokenStream, ParseTreeWalker
+from antlr4 import InputStream, CommonTokenStream, ParseTreeWalker # type: ignore
 
 # Asegura que Python vea los módulos en /program
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -540,7 +540,7 @@ def test_while_condition_not_bool_error():
     parser, tree = parse_src(src)
     stb, errors = build_symbols(tree)
     tc, errors  = type_check(stb, errors, parser, tree)
-    assert errors_contain(errors, "Se esperaba bool")
+    assert errors_contain(errors, "Se esperaba bool, se obtuvo")
 
 # visitDoWhileStatement
 
@@ -720,7 +720,7 @@ def test_print_statement_propagates_inner_expr_errors():
     stb, errors = build_symbols(tree)
     tc, errors  = type_check(stb, errors, parser, tree)
     # Debe reportar el error del + inválido dentro de print(...)
-    assert any("operación +" in e and "inválida" in e for e in errors.errors)
+    assert any("Operación +" in e and "inválida" in e for e in errors.errors)
 
 # visitClassMember
 
@@ -735,7 +735,6 @@ def test_class_member_var_and_method_checked():
     parser, tree = parse_src(src)
     stb, errors = build_symbols(tree)
     tc, errors  = type_check(stb, errors, parser, tree)
-    # No debería haber errores: se visitan los tres tipos de miembros
     assert not errors.errors
 
 
@@ -751,3 +750,24 @@ def test_type_annotation_allows_later_assignment():
     tc, errors  = type_check(stb, errors, parser, tree)
     # Asignación válida a variable anotada como integer
     assert not errors.errors
+
+# visitInitializer
+
+def test_initializer_infers_type_ok():
+    src = "let a = 1;"
+    parser, tree = parse_src(src)
+    stb, errors = build_symbols(tree)
+    tc, errors  = type_check(stb, errors, parser, tree)
+
+    assert not errors.errors
+    assert "a" in stb.globalScope.symbols
+    assert stb.globalScope.symbols["a"].ty == Type.INT
+
+def test_initializer_type_mismatch_fails():
+    src = 'let a: integer = "hola";'
+    parser, tree = parse_src(src)
+    stb, errors = build_symbols(tree)
+    tc, errors  = type_check(stb, errors, parser, tree)
+
+    # Debe coincidir con el wording que ya usas en visitVariableDeclaration
+    assert errors_contain(errors, "No se puede asignar Type.STRING a Type.INT en 'a'")

@@ -38,9 +38,10 @@ class SymbolTableBuilder(CompiscriptListener):
 
     def enterVariableDeclaration(self, ctx):
         name = ctx.Identifier().getText()
-        ty = ctx.typeAnnotation().type_()
-        ty = self._type_of(ty) if ty else Type.NULL
-        if not self.current.define(VarSymbol(name, ty)):
+        ann = getattr(ctx, "typeAnnotation", None) and ctx.typeAnnotation()
+        ty_decl = self._type_of(ann.type_()) if ann else Type.NULL
+        sym = VarSymbol(name, ty_decl, is_const=False)
+        if not self.current.define(sym):
             self.errors.err_ctx(ctx, f"Variable '{name}' redeclared in this scope")
 
     # Functions
