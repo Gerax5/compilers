@@ -358,7 +358,88 @@ class TypeChecker(CompiscriptVisitor):
         return None
 
     def visitLeftHandSide(self, ctx):
-        return super().visitLeftHandSide(ctx)
+        # Tipo base: Identifier/NewExpr/This
+        cur = self.visit(ctx.primaryAtom())
+
+        # Recorre cada sufijo encadenado
+        for suf in (ctx.suffixOp() or []):
+            kind = suf.getChild(0).getText()
+
+            # Llamada: '(' arguments? ')'
+            if kind == '(':
+                args_ctx = getattr(suf, "arguments", None) and suf.arguments()
+                args = (args_ctx.expression() if (args_ctx and hasattr(args_ctx, "expression")) else [])
+                args_ty = [self.visit(e) for e in args]
+
+                # Llamada a función normal
+                if isinstance(cur, FuncSymbol):
+                    params = cur.params
+                    if len(params) != len(args_ty):
+                        self.errors.err_ctx(suf, f"'{cur.name}' espera {len(params)} args, recibió {len(args_ty)}")
+                    else:
+                        for i, (p, a) in enumerate(zip(params, args_ty), 1):
+                            if not self._can_assign(p.ty, a):
+                                self.errors.err_ctx(suf, f"Arg {i} de '{cur.name}': esperado {p.ty}, recibió {a}")
+                    cur = cur.ty
+                    continue
+
+                if getattr(cur, "kind", "") == "class":
+                    cls = cur
+                    ctor = self._class_member(cls, "constructor")
+                    if ctor:
+                        params = ctor.params
+                        if len(params) != len(args_ty):
+                            self.errors.err_ctx(suf, f"constructor de {cls.name} espera {len(params)} args, recibió {len(args_ty)}")
+                        else:
+                            for i, (p, a) in enumerate(zip(params, args_ty), 1):
+                                if not self._can_assign(p.ty, a):
+                                    self.errors.err_ctx(suf, f"Arg {i} del constructor de {cls.name}: esperado {p.ty}, recibió {a}")
+                    elif args_ty:
+                        self.errors.err_ctx(suf, f"{cls.name} no tiene constructor que acepte {len(args_ty)} args")
+                    # el tipo de la expresión sigue siendo la clase
+                    cur = cls
+                    continue
+
+                # Cualquier otra cosa no invocable
+                self.errors.err_ctx(suf, "expresión no invocable")
+                cur = Type.NULL
+                continue
+
+            # Indexación: '[' expression ']'
+            if kind == '[':
+                idx_ty = self.visit(suf.expression())
+                if idx_ty != Type.INT:
+                    self.errors.err_ctx(suf, "Índice de arreglo debe ser integer")
+                if not isinstance(cur, ArrayType):
+                    self.errors.err_ctx(suf, "Indexación sobre no-arreglo")
+                    cur = Type.NULL
+                else:
+                    cur = (ArrayType(cur.base, cur.dimensions - 1) if cur.dimensions > 1 else cur.base)
+                continue
+
+            # Acceso a propiedad: '.' Identifier
+            if kind == '.':
+                prop = suf.Identifier().getText()
+                if not (hasattr(cur, "kind") and cur.kind == "class"):
+                    self.errors.err_ctx(suf, f"No se puede acceder propiedad '{prop}' sobre tipo {cur}")
+                    cur = Type.NULL
+                else:
+                    psym = self._class_member(cur, prop)
+                    if not psym:
+                        self.errors.err_ctx(suf, f"Propiedad '{prop}' no existe")
+                        cur = Type.NULL
+                    else:
+                        # si es método, dejamos el FuncSymbol para que la siguiente llamada lo use;
+                        # si es campo, tomamos su tipo
+                        cur = psym if getattr(psym, "kind", "") == "func" else psym.ty
+                continue
+
+            # Fallback (no debería ocurrir)
+            self.errors.err_ctx(suf, "Sufijo desconocido")
+            cur = Type.NULL
+
+        return self._set(ctx, cur)
+
 
     # Varibales Arrays
     def visitIndexExpr(self, ctx):
@@ -427,42 +508,20 @@ class TypeChecker(CompiscriptVisitor):
         return [self.visit(e) for e in exprs]
     
     def visitCallExpr(self, ctx):
-        args_ctx = ctx.arguments()
-        args_ty = self.visit(args_ctx) if args_ctx else []
+        # Si esta llamada es parte de un leftHandSide, visitLeftHandSide ya la procesó.
+        par = getattr(ctx, "parentCtx", None)
+        abu = getattr(par, "parentCtx", None)
+        if abu and abu.__class__.__name__.endswith("LeftHandSideContext"):
+            # Visita argumentos solo para disparar validaciones internas
+            args = ctx.arguments()
+            if args:
+                for e in (args.expression() or []):
+                    self.visit(e)
+            # El tipo final lo asignó visitLeftHandSide sobre el nodo LHS
+            return self._set(ctx, Type.NULL)
 
-        parent = ctx.parentCtx
-        callee_node = parent.getChild(0)        
-        callee_val  = self.visit(callee_node)
+        return super().visitCallExpr(ctx)
 
-        if isinstance(callee_val, FuncSymbol):
-            params = callee_val.params
-            if len(params) != len(args_ty):
-                self.errors.err_ctx(ctx, f"'{callee_val.name}' espera {len(params)} args, recibió {len(args_ty)}")
-                return self._set(ctx, callee_val.ty)
-            for i, (p, a) in enumerate(zip(params, args_ty), 1):
-                if not self._can_assign(p.ty, a):
-                    self.errors.err_ctx(ctx, f"Arg {i} de '{callee_val.name}': esperado {p.ty}, recibió {a}")
-            return self._set(ctx, callee_val.ty)
-
-        if getattr(callee_val, "kind", "") == "class":
-            cls = callee_val
-
-            ctor = cls.resolve_member("constructor") if hasattr(cls, "resolve_member") else None
-            if ctor:
-                params = ctor.params
-                if len(params) != len(args_ty):
-                    self.errors.err_ctx(ctx, f"constructor de {cls.name} espera {len(params)} args, recibió {len(args_ty)}")
-                else:
-                    for i, (p, a) in enumerate(zip(params, args_ty), 1):
-                        if not self._can_assign(p.ty, a):
-                            self.errors.err_ctx(ctx, f"Arg {i} del constructor de {cls.name}: esperado {p.ty}, recibió {a}")
-            elif args_ty:
-                self.errors.err_ctx(ctx, f"{cls.name} no tiene constructor que acepte {len(args_ty)} args")
-
-            return self._set(ctx, cls)
-
-        self.errors.err_ctx(ctx, "expresión no invocable")
-        return self._set(ctx, Type.NULL)
 
     def visitPrimaryExpr(self, ctx):
         if ctx.getChildCount() == 3 and ctx.getChild(0).getText() == '(' and ctx.getChild(2).getText() == ')':
