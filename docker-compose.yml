@@ -1,0 +1,25 @@
+version: "3.9"
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: compiscript-backend
+    volumes:
+      - ./program:/program
+    ports:
+      - "8000:8000"
+    working_dir: /program
+    command: uvicorn src.server.main:app --host 0.0.0.0 --port 8000
+
+  frontend:
+    image: node:20
+    container_name: compiscript-frontend
+    working_dir: /app
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    ports:
+      - "5173:5173"
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
