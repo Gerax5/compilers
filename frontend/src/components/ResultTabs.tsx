@@ -1,15 +1,17 @@
 import React, { useState } from "react";
-import type { AnalyzeError } from "../types/analysis";
+import type { AnalyzeError, ScopeNode } from "../types/analysis";
 import { ErrorList } from "./ErrorList";
 import { Button } from "./Button";
+import SymtabPane from "./SymtabPane";
 
 type Props = {
   errors: AnalyzeError[];
   globals: string[];
+  symtab?: ScopeNode;
 };
 
-export const ResultTabs: React.FC<Props> = ({ errors, globals }) => {
-  const [tab, setTab] = useState<"errors" | "globals">("errors");
+export const ResultTabs: React.FC<Props> = ({ errors, globals, symtab }) => {
+  const [tab, setTab] = useState<"errors" | "globals" | "tabla">("errors");
 
   return (
     <div
@@ -33,6 +35,11 @@ export const ResultTabs: React.FC<Props> = ({ errors, globals }) => {
           onClick={() => setTab("globals")}
           variant="ghost"
         />
+        <Button
+          label={`Symbol Table`}
+          onClick={() => setTab("tabla")}
+          variant="ghost"
+        />
       </div>
       <div style={{ overflow: "auto", padding: 8 }}>
         {tab === "errors" && <ErrorList errors={errors} />}
@@ -41,6 +48,7 @@ export const ResultTabs: React.FC<Props> = ({ errors, globals }) => {
             {(globals || []).join("\n")}
           </pre>
         )}
+        {tab === "tabla" && <SymtabPane root={symtab} />}
       </div>
     </div>
   );
