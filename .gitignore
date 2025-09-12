@@ -1,2 +1,10 @@
 configs
-program/__pycache__
+__pycache__/
+.pytest_cache/
+
+# Ignorar compilados de Python
+*.pyc
+*.pyo
+*.pyd
+
+program/t.py

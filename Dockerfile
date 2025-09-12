@@ -65,6 +65,16 @@ COPY requirements.txt .
 # Not production-intended, never do this, this is just a simple example
 RUN pip install -r requirements.txt --break-system-packages 
 
+# Exponer el puerto para FastAPI
+EXPOSE 8000
+
+# Copiar todo el proyecto dentro del contenedor
+COPY . .
+
+# Comando por defecto: levantar servidor FastAPI con uvicorn
+CMD ["uvicorn", "src.server.main:app", "--host", "0.0.0.0", "--port", "8000"]
+
+
 # Set user
 ARG USER=appuser
 ARG UID=1001

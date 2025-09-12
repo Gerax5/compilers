@@ -1,1 +1,4 @@
 antlr4-python3-runtime==4.13.0
+pytest
+fastapi==0.110.0
+uvicorn==0.27.1
