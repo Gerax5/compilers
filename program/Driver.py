@@ -10,7 +10,7 @@ from src.symbolTable.SymbolTableBuilder import SymbolTableBuilder
 from src.typeChecker.TypeChecker import TypeChecker
 
 def main(argv):
-    input_stream = FileStream(argv[1])
+    input_stream = FileStream(argv[1], encoding="utf-8")
     lexer = CompiscriptLexer(input_stream)
     stream = CommonTokenStream(lexer)
     parser = CompiscriptParser(stream)
