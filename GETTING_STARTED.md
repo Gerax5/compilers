@@ -52,7 +52,7 @@ The container expects the project under /program. Mount your local program/ fold
 
 #### 🪟 Windows (PowerShell):
 
-    docker run --rm -it -v "${PWD}\program:/program" csp-image
+    docker run --rm -it -v "${PWD}\program:/program" csp-image bash
 
 #### 🐧macOS / Linux (bash/zsh):
 
