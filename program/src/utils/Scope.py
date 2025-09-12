@@ -7,10 +7,11 @@ class Symbol:
         self.kind = None
 
 class VarSymbol(Symbol): 
-    def __init__(self, name, ty, is_const=False, value=None):
+    def __init__(self, name, ty, is_const=False, value=None, owner=None):
         super().__init__(name, ty)
         self.kind = 'const' if is_const else 'var'
         self.value = value
+        self.owner = owner
 
 class FuncSymbol(Symbol):
     def __init__(self, name: str, ret: Type, params: list[Symbol]):
@@ -39,8 +40,8 @@ class ClassSymbol(Symbol):
         return None
 
 class Scope:
-    def __init__(self, parent=None, name="<scope>"):
-        self.parent, self.name, self.symbols = parent, name, {}
+    def __init__(self, parent=None, name="<scope>", owner=None):
+        self.parent, self.name, self.symbols, self.owner = parent, name, {}, owner
     def define(self, sym: Symbol):
         if sym.name in self.symbols: return False
         self.symbols[sym.name] = sym; return True

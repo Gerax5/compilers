@@ -6,6 +6,7 @@ from CompiscriptListener import CompiscriptListener
 from CompiscriptParser import CompiscriptParser
 from antlr4.tree.Tree import TerminalNode # type: ignore
 
+
 class TypeChecker(CompiscriptVisitor):
     def __init__(self, scopes_by_ctx, global_scope, errors, parser):
         self.scopes = scopes_by_ctx
@@ -40,6 +41,8 @@ class TypeChecker(CompiscriptVisitor):
         if isinstance(dst, ArrayType) and isinstance(src, ArrayType):
             if dst.dimensions != src.dimensions:
                 return False
+            if src.base == Type.NULL:  # arreglo vacío puede asignarse a cualquier tipo de arreglo
+                return True
             if dst.base == src.base:
                 return True
             if dst.base == Type.FLOAT and src.base == Type.INT:
@@ -210,8 +213,8 @@ class TypeChecker(CompiscriptVisitor):
         elem_types = [self.visit(e) for e in elem_nodes]
 
         if not elem_types:
-            self.errors.err_ctx(ctx, "No se puede inferir el tipo de un arreglo vacío; anota el tipo (p. ej. int[])")
-            return self._set(ctx, ArrayType(Type.NULL, 1))
+            # self.errors.err_ctx(ctx, "No se puede inferir el tipo de un arreglo vacío; anota el tipo (p. ej. int[])")
+            return self._set(ctx, ArrayType(Type.NULL, 1, True))
 
         any_arr = any(self._is_array(t) for t in elem_types)
 
@@ -260,16 +263,22 @@ class TypeChecker(CompiscriptVisitor):
 
         init = ctx.expression()
         if not init:
-            self.errors.err_ctx(ctx, f"Const '{name}' requiere inicializador")
+            self.errors.err_ctx(ctx, f"Const '{name}' requires initializer")
             return None
 
         init_ty = self.visit(init)
 
+        if declared_ty == Type.NULL and isinstance(init_ty, ArrayType) and init_ty.base == Type.NULL:
+            self.errors.err_ctx(ctx, f"Const '{name}': cannot infer type from empty array, please add a type annotation")
+            return None
+
         if declared_ty == Type.NULL:
             sym.ty = init_ty
         elif not self._can_assign(declared_ty, init_ty):
-            self.errors.err_ctx(ctx, f"Const '{name}': esperado {declared_ty}, recibido {init_ty}")
+            self.errors.err_ctx(ctx, f"Const '{name}': expected {declared_ty}, got {init_ty}")
+
         return None
+
 
     def visitAssignment(self, ctx):
         left = ctx.Identifier().getText()
@@ -345,7 +354,6 @@ class TypeChecker(CompiscriptVisitor):
         return self._set(ctx, recv_ty)
 
 
-    
     def visitVariableDeclaration(self, ctx):
         name = ctx.Identifier().getText()
         ann  = getattr(ctx, "typeAnnotation", None) and ctx.typeAnnotation()
@@ -362,14 +370,18 @@ class TypeChecker(CompiscriptVisitor):
             expr = getattr(init, "expression", None) and init.expression()
             init_ty = self.visit(expr) if expr else self.visit(init)
 
+        if declared_ty == Type.NULL and isinstance(init_ty, ArrayType) and init_ty.base == Type.NULL:
+            if getattr(init_ty, "empty", False):
+                self.errors.err_ctx(ctx, f"Variable '{name}': cannot infer type from empty array, please add a type annotation")
+                return None
+
         if declared_ty == Type.NULL and init_ty is not None:
             sym.ty = init_ty
         elif init_ty is not None and not self._can_assign(declared_ty, init_ty):
             self.errors.err_ctx(ctx, f"No se puede asignar {init_ty} a {declared_ty} en '{name}'")
-        else:
-            pass
 
         return None
+
 
     def visitLeftHandSide(self, ctx):
         # Tipo base: Identifier/NewExpr/This
@@ -481,13 +493,28 @@ class TypeChecker(CompiscriptVisitor):
 
         ret_ann = getattr(ctx, "type_", None) and ctx.type_()
         ret_ty = self._type_of(ret_ann) if ret_ann else Type.VOID
-        self.fn_ret_stack.append(ret_ty)
+
+        fname = ctx.Identifier().getText()
+        if fname == "constructor":
+            cls = getattr(fscope, "owner", None)
+            if cls and getattr(cls, "kind", "") == "class":
+                expected_ty = cls
+                if ret_ty != Type.VOID and ret_ty != expected_ty:
+                    self.errors.err_ctx(ctx, f"Constructor of '{cls.name}' cannot declare return type {ret_ty}")
+                self.fn_ret_stack.append(expected_ty)
+            else:
+                self.errors.err_ctx(ctx, "Constructor declared outside a class?")
+                self.fn_ret_stack.append(Type.NULL)
+        else:
+            # función normal
+            self.fn_ret_stack.append(ret_ty)
 
         r = self.visitChildren(ctx)
 
         self.fn_ret_stack.pop()
         self.current = prev_scope
         return r
+
     
     def visitParameter(self, ctx): # REVISAR
         ty_ctx = ctx.type_() if hasattr(ctx, "type_") else None

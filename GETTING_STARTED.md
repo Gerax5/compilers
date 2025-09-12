@@ -33,6 +33,7 @@ For more details about structure, see `README.md`.
 2. Run from frontend/:
 
    ```bash
+   npm install
    npm run dev
    ```
 

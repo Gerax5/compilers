@@ -1,7 +1,2 @@
-class A {
-    function m(): int {}
-}
-
-class B: A {
-    function m(): int {}
-}
+let lista = [1, 2, 3];
+print(lista[0]);

@@ -822,3 +822,24 @@ def test_class_inheritance_and_method_override_ok():
     tc, errors  = type_check(stb, errors, parser, tree)
 
     assert not errors.errors
+
+
+def test_array_initialization_empty_without_annotation_is_error():
+    src = """
+    let a = [];
+    """
+    parser, tree = parse_src(src)
+    stb, errors = build_symbols(tree)
+    tc, errors  = type_check(stb, errors, parser, tree)
+
+    assert errors_contain(errors, "Variable 'a': cannot infer type from empty array, please add a type annotation")
+
+def test_array_initialization_with_multiple_types_is_error():
+    src = """
+    let a = [1, 2.5, "hola"];
+    """
+    parser, tree = parse_src(src)
+    stb, errors = build_symbols(tree)
+    tc, errors  = type_check(stb, errors, parser, tree)
+
+    assert errors_contain(errors, "Tipos incompatibles en arreglo: Type.FLOAT y Type.STRING")

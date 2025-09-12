@@ -29,9 +29,11 @@ class SymbolTableBuilder(CompiscriptListener):
 
     # Variables
     def enterConstantDeclaration(self, ctx):
-        name = ctx.Identifier().getText() 
-        ty = ctx.typeAnnotation().type_()
-        ty_decl = self._type_of(ty) if ty else Type.NULL
+        name = ctx.Identifier().getText()
+        
+        ann = ctx.typeAnnotation()
+        ty_decl = self._type_of(ann.type_()) if ann else Type.NULL
+        
         sym = VarSymbol(name, ty_decl, is_const=True)
         if not self.current.define(sym):
             self.errors.err_ctx(ctx, f"Constant '{name}' redeclared in this scope")
@@ -63,7 +65,8 @@ class SymbolTableBuilder(CompiscriptListener):
         if not self.current.define(func):
             self.errors.err_ctx(ctx, f"Function '{name}' redeclared")
 
-        self.current = Scope(self.current, f"func {name}")
+        owner = getattr(self.current, "owner", None)
+        self.current = Scope(self.current, f"func {name}", owner=owner)
         self.scopes[ctx] = self.current
 
         if ctx.parameters():
@@ -96,7 +99,7 @@ class SymbolTableBuilder(CompiscriptListener):
         if not self.current.define(cls):
             self.errors.err_ctx(ctx, f"Class '{name}' redeclared")
 
-        classScope = Scope(self.current, f"class {name}")
+        classScope = Scope(self.current, f"class {name}", owner=cls)
         self.scopes[ctx] = classScope
         self.current = classScope
         cls.scope = classScope
