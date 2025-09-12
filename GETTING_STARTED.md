@@ -8,15 +8,41 @@ This project ships with a Docker-based dev environment so you don’t have to in
 
 ---
 
+## 🧭 Structure
+
+- `program/` → compilador y backend (ANTLR, Driver.py, SymbolTable, TypeChecker, FastAPI)
+- `frontend/` → IDE web (Vite + React + TypeScript)
+- `docker-compose.yml` → orquesta backend (puerto 8000) y frontend (puerto 5173)
+
+For more details about structure, see `README.md`.
+
+---
+
 ## 🛠️ Build
 
-### _1) Build the Docker image (includes ANTLR)_
+## ⚡️IDE completo (frontend + backend)
+
+> Requires `docker-compose.yml` in the project root with `backend` & `frontend` services.
+
+1. Build everything from project root:
+
+   ```bash
+   docker compose up --build
+   ```
+
+2. Run from frontend/:
+
+   ```bash
+   npm run dev
+   ```
+
+## 🧰 Modo CLI (solo consola, sin IDE)
+
+1. Build the Docker image (includes ANTLR)\_
 
 From the project root (where the Dockerfile lives):
 
-```bash
-docker build --rm -t csp-image .
-```
+    docker build --rm -t csp-image .
 
 This creates an image with Python 3 and ANTLR4 ready to go.
 
@@ -26,15 +52,11 @@ The container expects the project under /program. Mount your local program/ fold
 
 #### 🪟 Windows (PowerShell):
 
-```powershell
-docker run --rm -it -v "${PWD}\program:/program" csp-image
-```
+    docker run --rm -it -v "${PWD}\program:/program" csp-image
 
 #### 🐧macOS / Linux (bash/zsh):
 
-```bash
-docker run --rm -it -v "$(pwd)/program:/program" csp-image
-```
+    docker run --rm -it -v "$(pwd)/program:/program" csp-image
 
 After this, you’ll be inside the container with /program pointing to your local files.
 
@@ -42,19 +64,15 @@ After this, you’ll be inside the container with /program pointing to your loca
 
 Inside the container:
 
-```bash
-python3 Driver.py program.cps
-```
+    python3 Driver.py program.cps
 
 Replace program.cps with your source file.
 
-### 🟥 (Optional (no es necesario)) Regenerate parser/visitor after editing the grammar
+### 🟥 (Optional) Regenerate parser/visitor after editing the grammar
 
 If you modify Compiscript.g4, you can regenerate the ANTLR artifacts:
 
-```bash
-antlr4 -Dlanguage=Python3 Compiscript.g4 -visitor -listener
-```
+    antlr4 -Dlanguage=Python3 Compiscript.g4 -visitor -listener
 
 This updates:
 
@@ -69,6 +87,4 @@ The image already includes ANTLR (antlr4 launcher). If you see “command not fo
 
 Run:
 
-```bash
-pytest
-```
+    pytest
