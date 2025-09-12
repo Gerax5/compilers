@@ -771,3 +771,54 @@ def test_initializer_type_mismatch_fails():
 
     # Debe coincidir con el wording que ya usas en visitVariableDeclaration
     assert errors_contain(errors, "No se puede asignar Type.STRING a Type.INT en 'a'")
+
+
+def test_class_inheritance_and_method_override():
+    src = """
+        class A {
+            function m(x: int): void {}
+        }
+
+        class B: A {
+            function m(x: string): void {}
+        }
+    """
+    parser, tree = parse_src(src)
+    stb, errors = build_symbols(tree)
+    tc, errors  = type_check(stb, errors, parser, tree)
+
+    assert errors_contain(errors, "Override inválido de 'm': tipo de parámetro Type.STRING no coincide con Type.INT")
+
+def test_class_inheritance_and_method_override_error():
+    src = """
+        class A {
+            function m(x: int): void {}
+        }
+
+        class B: A {
+            function m(x: int): string {}
+        }
+    """
+    parser, tree = parse_src(src)
+    stb, errors = build_symbols(tree)
+    tc, errors  = type_check(stb, errors, parser, tree)
+
+    assert errors_contain(errors, "Override inválido de 'm': tipo de retorno Type.STRING no coincide con Type.VOID")
+
+def test_class_inheritance_and_method_override_ok():
+    src = """
+        class A {
+            function m(x: int): void {}
+        }
+
+        class B: A {
+            function m(x: int): void {
+                const a: int = x;
+            }
+        }
+    """
+    parser, tree = parse_src(src)
+    stb, errors = build_symbols(tree)
+    tc, errors  = type_check(stb, errors, parser, tree)
+
+    assert not errors.errors

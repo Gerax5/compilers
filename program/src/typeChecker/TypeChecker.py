@@ -147,6 +147,20 @@ class TypeChecker(CompiscriptVisitor):
 
         return False
 
+    def _check_override(self, sub_sym, super_sym, ctx):
+        # Para que el override funcione tiene que ser exactamente igual
+        # Preferencia del programador (segun carlos)
+        if len(sub_sym.params) != len(super_sym.params):
+            self.errors.err_ctx(ctx, f"Override inválido de '{sub_sym.name}': número de parámetros distinto")
+            return
+
+        for (sp, pp) in zip(sub_sym.params, super_sym.params):
+            if sp.ty != pp.ty:
+                self.errors.err_ctx(ctx, f"Override inválido de '{sub_sym.name}': tipo de parámetro {sp.ty} no coincide con {pp.ty}")
+
+        if sub_sym.ty != super_sym.ty:
+            self.errors.err_ctx(ctx, f"Override inválido de '{sub_sym.name}': tipo de retorno {sub_sym.ty} no coincide con {super_sym.ty}")
+
     # INITIAL
     def visitProgram(self, ctx):
         return self.visitChildren(ctx)
@@ -529,12 +543,45 @@ class TypeChecker(CompiscriptVisitor):
         return self.visitChildren(ctx)
 
     # CLASES
-    def visitClassDeclaration(self, ctx): # PREGUNTAR OVERRIDE
+    def visitClassDeclaration(self, ctx):
         prev = self.current
-        self.current = self.scopes.get(ctx, self.current)
+        cls_scope = self.scopes.get(ctx, self.current)
+        self.current = cls_scope
+
+        idents = ctx.Identifier()
+        if isinstance(idents, list):
+            name = idents[0].getText()
+            super_name = idents[1].getText() if len(idents) > 1 else None
+        else:
+            name = idents.getText()
+            super_name = None
+
+        cls_sym = self.current.resolve(name)
+
+        if super_name:
+            super_sym = self.current.resolve(super_name)
+            if not isinstance(super_sym, ClassSymbol):
+                self.errors.err_ctx(ctx, f"Superclase '{super_name}' no encontrada o no es clase")
+            else:
+                cls_sym.superclass = super_sym
+
+                # Nota: El override que nosotros toleramos es en el que es el mismo exacto metodo
+                # Con los mismos exactos parametros y tipo de retorno
+                # No aceptamos cualquier funcion con el mismo nombre
+                for mname, msym in super_sym.scope.symbols.items():
+                    if mname not in cls_scope.symbols:
+                        cls_scope.define(msym)  
+                    else:
+                        sub_sym = cls_scope.resolve(mname)
+                        if getattr(sub_sym, "kind", "") == "func" and getattr(msym, "kind", "") == "func":
+                            self._check_override(sub_sym, msym, ctx)
+
         r = self.visitChildren(ctx)
+
         self.current = prev
         return r
+
+
 
     def visitThisExpr(self, ctx):
         sym = self.current.resolve("this")

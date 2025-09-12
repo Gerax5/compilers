@@ -112,6 +112,11 @@ Errors: report with errors.err_ctx(ctx, msg) including precise source location.
 - ClassSymbol.superclass when declared with : Base.
 - Member access resolved by \_class_member, traversing the parent chain.
 - this is only valid inside a class scope.
+- Inherited methods: when declaring a subclass, members from the superclass are copied into the subclass scope.
+- Method overrides: if a method in the subclass has the same name as one in the superclass:
+  - It replaces (overrides) the inherited method.
+  - The type checker validates that the signature matches (same number of parameters, same parameter types, and same return type).
+  - If the signature does not match, the type checker reports an invalid override error
 
 ### _Loops_
 
