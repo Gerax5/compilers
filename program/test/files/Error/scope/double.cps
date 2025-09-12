@@ -3,7 +3,6 @@ let a = "Hola";
 let a = "Adios";
 
 
-// Error?
 let b = "Hola";
 {
   let b = "Adios";

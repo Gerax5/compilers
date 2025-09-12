@@ -42,6 +42,11 @@ class SymbolTableBuilder(CompiscriptListener):
         name = ctx.Identifier().getText()
         ann = getattr(ctx, "typeAnnotation", None) and ctx.typeAnnotation()
         ty_decl = self._type_of(ann.type_()) if ann else Type.NULL
+
+        func_scope, func_sym = self._find_function_scope()
+        if func_sym and any(p.name == name for p in func_sym.params):
+            self.errors.err_ctx(ctx, f"Variable '{name}' redeclared (already a parameter)")
+
         sym = VarSymbol(name, ty_decl, is_const=False)
         if not self.current.define(sym):
             self.errors.err_ctx(ctx, f"Variable '{name}' redeclared in this scope")
@@ -65,7 +70,11 @@ class SymbolTableBuilder(CompiscriptListener):
         if not self.current.define(func):
             self.errors.err_ctx(ctx, f"Function '{name}' redeclared")
 
-        owner = getattr(self.current, "owner", None)
+        if isinstance(self.current.owner, ClassSymbol):
+            owner = self.current.owner
+        else:
+            owner = func
+
         self.current = Scope(self.current, f"func {name}", owner=owner)
         self.scopes[ctx] = self.current
 
@@ -144,6 +153,18 @@ class SymbolTableBuilder(CompiscriptListener):
 
     def exitDoWhileStatement(self, ctx):
         self.loop_depth -= 1
+
+    def _find_function_scope(self):
+        scope = self.current
+        while scope:
+            if scope.name.startswith("func "):
+                # print("SCOPE NAME:", scope.)
+                owner = getattr(scope, "owner", None)
+                if isinstance(owner, FuncSymbol):
+                    return scope, owner
+            scope = scope.parent
+        return None, None
+
 
     def _type_of(self, tctx):
         if tctx is None:

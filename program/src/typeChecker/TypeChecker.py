@@ -171,9 +171,23 @@ class TypeChecker(CompiscriptVisitor):
     def visitBlock(self, ctx):
         prev = self.current
         self.current = self.scopes.get(ctx, self.current)
-        r = self.visitChildren(ctx)
+
+        found_return = False
+        for stmt in ctx.statement() or []:
+            if found_return:
+                # Ya hubo un return antes, todo lo que sigue es dead code
+                self.errors.err_ctx(stmt, "Se detectó código inalcanzable (código muerto)")
+                continue
+
+            self.visit(stmt)
+
+            child = stmt.getChild(0) if stmt.getChildCount() > 0 else None
+            if child and child.__class__.__name__ == "ReturnStatementContext":
+                found_return = True
+
         self.current = prev
-        return r
+        return None
+
 
     def visitStatement(self, ctx):
         return self.visitChildren(ctx)
@@ -269,7 +283,7 @@ class TypeChecker(CompiscriptVisitor):
         init_ty = self.visit(init)
 
         if declared_ty == Type.NULL and isinstance(init_ty, ArrayType) and init_ty.base == Type.NULL:
-            self.errors.err_ctx(ctx, f"Const '{name}': cannot infer type from empty array, please add a type annotation")
+            self.errors.err_ctx(ctx, f"Const '{name}': no se puede inferir el tipo a partir de un arreglo vacío, por favor agrega una anotación de tipo")
             return None
 
         if declared_ty == Type.NULL:
@@ -372,7 +386,7 @@ class TypeChecker(CompiscriptVisitor):
 
         if declared_ty == Type.NULL and isinstance(init_ty, ArrayType) and init_ty.base == Type.NULL:
             if getattr(init_ty, "empty", False):
-                self.errors.err_ctx(ctx, f"Variable '{name}': cannot infer type from empty array, please add a type annotation")
+                self.errors.err_ctx(ctx, f"Variable '{name}': no se puede inferir el tipo a partir de un arreglo vacío, por favor agrega una anotación de tipo")
                 return None
 
         if declared_ty == Type.NULL and init_ty is not None:
@@ -528,6 +542,9 @@ class TypeChecker(CompiscriptVisitor):
         return [self.visit(p) for p in params]
 
     def visitReturnStatement(self, ctx):
+        if not self.fn_ret_stack:
+            self.errors.err_ctx(ctx, "'return' not allowed outside of a function")
+            return self._set(ctx, Type.NULL)
         expected = self.fn_ret_stack[-1] if self.fn_ret_stack else Type.VOID
         expr: CompiscriptParser.ExpressionContext = ctx.expression()
         if expected == Type.VOID:

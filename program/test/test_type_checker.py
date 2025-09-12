@@ -832,7 +832,7 @@ def test_array_initialization_empty_without_annotation_is_error():
     stb, errors = build_symbols(tree)
     tc, errors  = type_check(stb, errors, parser, tree)
 
-    assert errors_contain(errors, "Variable 'a': cannot infer type from empty array, please add a type annotation")
+    assert errors_contain(errors, "Variable 'a': no se puede inferir el tipo a partir de un arreglo vacío, por favor agrega una anotación de tipo")
 
 def test_array_initialization_with_multiple_types_is_error():
     src = """
@@ -843,3 +843,16 @@ def test_array_initialization_with_multiple_types_is_error():
     tc, errors  = type_check(stb, errors, parser, tree)
 
     assert errors_contain(errors, "Tipos incompatibles en arreglo: Type.FLOAT y Type.STRING")
+
+def test_dead_code_after_return_is_reported():
+    src = """
+    function hola(): string {
+        return "";
+        let a = 5;
+    }
+    """
+    parser, tree = parse_src(src)
+    stb, errors = build_symbols(tree)
+    tc, errors  = type_check(stb, errors, parser, tree)
+
+    assert errors_contain(errors, "Se detectó código inalcanzable (código muerto)")

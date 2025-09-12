@@ -20,7 +20,7 @@ For more details about structure, see `README.md`.
 
 ## 🛠️ Build
 
-## ⚡️IDE completo (frontend + backend)
+## ⚡️Complete IDE (frontend + backend)
 
 > Requires `docker-compose.yml` in the project root with `backend` & `frontend` services.
 
@@ -37,7 +37,7 @@ For more details about structure, see `README.md`.
    npm run dev
    ```
 
-## 🧰 Modo CLI (solo consola, sin IDE)
+## 🧰 CLI Mode (headless, no IDE)
 
 1. Build the Docker image (includes ANTLR)\_
 
@@ -47,7 +47,7 @@ From the project root (where the Dockerfile lives):
 
 This creates an image with Python 3 and ANTLR4 ready to go.
 
-### _3) Run the container with your source mounted_
+### _1) Run the container with your source mounted_
 
 The container expects the project under /program. Mount your local program/ folder there
 
@@ -61,7 +61,7 @@ The container expects the project under /program. Mount your local program/ fold
 
 After this, you’ll be inside the container with /program pointing to your local files.
 
-### _3) Run the compiler on a sample program_
+### _2) Run the compiler on a sample program_
 
 Inside the container:
 

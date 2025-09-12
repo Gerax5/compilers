@@ -21,6 +21,7 @@ Phases:
 ## Project Structure
 
 ```
+/frontend                         # IDE
 /program
   ├─ Driver.py                    # Compiler entry point
   ├─ Compiscript.g4               # ANTLR grammar
