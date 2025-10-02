@@ -2,9 +2,11 @@ from typing import List, Optional
 from src.utils.Types import Type
 
 class Symbol:
-    def __init__(self, name: str, ty: Type): 
+    def __init__(self, name: str, ty: Type, size: int = 4): 
         self.name, self.ty = name, ty
         self.kind = None
+        self.size = size
+        self.address = None
 
 class VarSymbol(Symbol): 
     def __init__(self, name, ty, is_const=False, value=None, owner=None):
@@ -41,9 +43,16 @@ class ClassSymbol(Symbol):
 
 class Scope:
     def __init__(self, parent=None, name="<scope>", owner=None):
-        self.parent, self.name, self.symbols, self.owner = parent, name, {}, owner
+        self.parent = parent
+        self.name = name
+        self.symbols = {}
+        self.owner = owner
+        self.offset = 0
+
     def define(self, sym: Symbol):
         if sym.name in self.symbols: return False
+        sym.address = self.offset
+        self.offset += sym.size
         self.symbols[sym.name] = sym; return True
     def resolve(self, name: str):
         s = self.symbols.get(name)
