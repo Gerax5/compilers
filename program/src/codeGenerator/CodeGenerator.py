@@ -92,7 +92,6 @@ class CodeGenerator(CompiscriptVisitor):
 
         return result
 
-
     def visitLogicalOrExpr(self, ctx):
         if ctx.getChildCount() == 1:
             return self.visit(ctx.getChild(0))
@@ -116,6 +115,25 @@ class CodeGenerator(CompiscriptVisitor):
 
         return result
 
+    def visitUnaryExpr(self, ctx):
+        if ctx.getChildCount() == 1:
+            return self.visit(ctx.getChild(0))
+
+        op = ctx.getChild(0).getText()   
+        expr_val = self.visit(ctx.getChild(1))
+
+        temp = self.temp_manager.new_temp()
+
+        if op == "-":
+            self.emit("-", 0, expr_val, temp)
+
+        elif op == "!":
+            self.emit("not", expr_val, None, temp)
+
+        if isinstance(expr_val, str) and expr_val.startswith("t"):
+            self.temp_manager.release_temp(expr_val)
+
+        return temp
 
     # IF
     def visitIfStatement(self, ctx):
@@ -182,7 +200,6 @@ class CodeGenerator(CompiscriptVisitor):
         for suf in (ctx.suffixOp() or []):
             kind = suf.getChild(0).getText()
 
-            # --- llamada a función ---
             if kind == '(':
                 args_ctx = getattr(suf, "arguments", None) and suf.arguments()
                 args = (args_ctx.expression() if args_ctx else [])
@@ -262,7 +279,6 @@ class CodeGenerator(CompiscriptVisitor):
         return temp
     
     def visitThisExpr(self, ctx):
-        print("AQUI")
         return "this"
     
     def visitClassMember(self, ctx):
@@ -287,10 +303,6 @@ class CodeGenerator(CompiscriptVisitor):
 
         return temp
 
-
-
-
-
     def visitMultiplicativeExpr(self, ctx):
         if ctx.getChildCount() == 1:
             return self.visit(ctx.getChild(0))
@@ -311,7 +323,6 @@ class CodeGenerator(CompiscriptVisitor):
         return temp
     
     def visitRelationalExpr(self, ctx):
-        # Caso base: un solo hijo, delega
         if ctx.getChildCount() == 1:
             return self.visit(ctx.getChild(0))
 
@@ -331,7 +342,6 @@ class CodeGenerator(CompiscriptVisitor):
             self.temp_manager.release_temp(right)
 
         return temp
-
 
     # EXTRA FUNCTION
     def visitPrintStatement(self, ctx):
