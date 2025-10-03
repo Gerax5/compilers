@@ -40,8 +40,8 @@ def main(argv):
     # for ctx, sc in listener.scopes.items():
     #     print(type(ctx).__name__, sc.name, list(sc.symbols.keys()))
 
-    # for error in errors.errors:
-    #     print(error)
+    for error in errors.errors:
+        print(error)
 
 
 

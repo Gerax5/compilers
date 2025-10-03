@@ -384,6 +384,7 @@ class CodeGenerator(CompiscriptVisitor):
         return temp
     
     def visitVariableDeclaration(self, ctx):
+        print("a")
         name = ctx.Identifier().getText()
         init = getattr(ctx, "initializer", None) and ctx.initializer()
         if init:
@@ -412,5 +413,105 @@ class CodeGenerator(CompiscriptVisitor):
             return self.visit(ctx.getChild(1))
         return self.visitChildren(ctx)
     
+    def visitArrayLiteralExpr(self, ctx):
+        print("HOAL")
+        elems = ctx.expression() or []
+
+        size = len(elems)
+
+        arr_temp = self.temp_manager.new_temp()
+        self.emit("newarr", "int", size, arr_temp)
+
+        for i, e in enumerate(elems):
+            val = self.visit(e)
+            self.emit("[]=", arr_temp, i, val)
+
+            if isinstance(val, str) and val.startswith("t"):
+                self.temp_manager.release_temp(val)
+
+        return arr_temp
+
+    def visitArrayLiteral(self, ctx):
+        elems = ctx.expression() or []
+        size = len(elems)
+
+        arr_temp = self.temp_manager.new_temp()
+        self.emit("newarr", "ref", size, arr_temp) 
+
+        for i, e in enumerate(elems):
+            val = self.visit(e)
+            self.emit("[]=", arr_temp, i, val)
+
+            if isinstance(val, str) and val.startswith("t"):
+                self.temp_manager.release_temp(val)
+
+        return arr_temp
+
+
+
+    def visitConstantDeclaration(self, ctx):
+        name = ctx.Identifier().getText()
+        init = ctx.expression()
+
+        if init:
+            val = self.visit(init)   
+            self.emit("=", val, None, name)
+
+            if isinstance(val, str) and val.startswith("t"):
+                self.temp_manager.release_temp(val)
+
+        return name
+
+    def visitPrimaryExpr(self, ctx):
+        if ctx.getChildCount() == 3 and ctx.getChild(0).getText() == '(' and ctx.getChild(2).getText() == ')':
+            return self.visit(ctx.getChild(1))
+
+        return self.visitChildren(ctx)
+
+    def visitLiteralExpr(self, ctx):
+        print("b")
+        tok = ctx.getChild(0)
+        if not isinstance(tok, TerminalNode):
+            return self.visit(tok)
+
+        tok = tok.getText()
+
+        if tok == "true":
+            return 1   
+        if tok == "false":
+            return 0
+
+        if tok.startswith('"') or tok.startswith("'"):
+            return tok   
+
+        if tok.replace("_", "").isdigit():
+            return int(tok)  
+
+        try:
+            return float(tok)
+        except ValueError:
+            pass
+
+        return tok
+
+
+    def visitArrayLiteralExpr(self, ctx):
+        elems = ctx.expression() or []
+        size = len(elems)
+
+        arr_temp = self.temp_manager.new_temp()
+        self.emit("newarr", "any", size, arr_temp)
+
+        for i, e in enumerate(elems):
+            val = self.visit(e)
+            self.emit("[]=", arr_temp, i, val)
+
+            if isinstance(val, str) and val.startswith("t"):
+                self.temp_manager.release_temp(val)
+
+        return arr_temp
+
+
+
     def visitIdentifierExpr(self, ctx):
         return ctx.Identifier().getText()

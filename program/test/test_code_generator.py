@@ -123,31 +123,113 @@ def test_class_codegen():
     assert any(q["op"] == "setprop" and q["arg1"] == "this" and q["arg2"] == "x" for q in cg.quadruples)
     assert any(q["op"] == "setprop" and q["arg1"] == "this" and q["arg2"] == "y" for q in cg.quadruples)
 
-# def test_simple_addition_codegen():
-#     src = "function f(): integer { return 1 + 2; }"
-#     parser, tree = parse_src(src)
-#     stb, errors = build_symbols(tree)
-#     tc, errors  = type_check(stb, errors, parser, tree)
-#     cg = gen_code(tree)
+def test_constant_declaration_codegen():
+    src = "const PI: float = 3.14;"
+    parser, tree = parse_src(src)
+    stb, errors = build_symbols(tree)
+    tc, errors  = type_check(stb, errors, parser, tree)
+    cg = gen_code(tree)
 
-#     assert not errors.errors
-#     assert any(q["op"] == "+" for q in cg.quadruples)
+    assert not errors.errors
+    assert any(q["op"] == "=" and q["arg1"] == 3.14 and q["result"] == "PI" for q in cg.quadruples)
 
-# def test_class_and_method_codegen():
-#     src = """
-#     class Persona {
-#         var nombre;
-#         function saludar() {
-#             print("Hola " + this.nombre);
-#         }
-#     }
-#     """
-#     parser, tree = parse_src(src)
-#     stb, errors = build_symbols(tree)
-#     tc, errors  = type_check(stb, errors, parser, tree)
-#     cg = gen_code(tree)
+def test_class_call_codegen():
+    src = """
+    class Point {
+        var x: integer;
+        var y: integer;
 
-#     # Revisar que haya "class" y "getprop"
-#     ops = [q["op"] for q in cg.quadruples]
-#     assert "class" in ops
-#     assert "getprop" in ops
+        function constructor(x: integer, y: integer) {
+            this.x = x;
+            this.y = y;
+        }
+    }
+
+    const p: Point = new Point(10, 20);
+    """
+    parser, tree = parse_src(src)
+    stb, errors = build_symbols(tree)
+    tc, errors  = type_check(stb, errors, parser, tree)
+    cg = gen_code(tree)
+
+    assert not errors.errors
+    assert any(q["op"] == "new" and q["arg1"] == "Point" for q in cg.quadruples)
+    assert any(q["op"] == "=" and q["result"] == "p" for q in cg.quadruples)
+
+def test_string_literal_codegen():
+    src = 'let greeting: string = "Hello, World!";'
+    parser, tree = parse_src(src)
+    stb, errors = build_symbols(tree)
+    tc, errors  = type_check(stb, errors, parser, tree)
+    cg = gen_code(tree)
+
+    assert not errors.errors
+    assert any(q["op"] == "=" and q["arg1"] == '"Hello, World!"' and q["result"] == "greeting" for q in cg.quadruples)
+
+def test_boolean_literal_codegen():
+    src = "let isActive: boolean = true;"
+    parser, tree = parse_src(src)
+    stb, errors = build_symbols(tree)
+    tc, errors  = type_check(stb, errors, parser, tree)
+    cg = gen_code(tree)
+
+    assert not errors.errors
+    assert any(q["op"] == "=" and q["arg1"] == 1 and q["result"] == "isActive" for q in cg.quadruples)
+
+def test_null_literal_codegen():
+    src = "let nothing = null;"
+    parser, tree = parse_src(src)
+    stb, errors = build_symbols(tree)
+    tc, errors  = type_check(stb, errors, parser, tree)
+    cg = gen_code(tree)
+
+    assert not errors.errors
+    assert any(q["op"] == "=" and q["arg1"] == "null" and q["result"] == "nothing" for q in cg.quadruples)
+
+def test_array_declaration_codegen():
+    src = "let numbers: integer[] = [1, 2, 3, 4, 5];"
+    parser, tree = parse_src(src)
+    stb, errors = build_symbols(tree)
+    tc, errors  = type_check(stb, errors, parser, tree)
+    cg = gen_code(tree)
+
+    assert not errors.errors
+    assert any(q["op"] == "newarr" and q["arg1"] == "ref" and q["arg2"] == 5 and q["result"] == "t1" for q in cg.quadruples)
+    expected_values = [1, 2, 3, 4, 5]
+    for idx, val in enumerate(expected_values):
+        assert any(
+            q["op"] == "[]=" and q["arg1"] == "t1" and q["arg2"] == idx and q["result"] == val
+            for q in cg.quadruples
+        )
+    assert any(q["op"] == "=" and q["arg1"] == "t1" and q["result"] == "numbers" for q in cg.quadruples)
+
+def test_matrix_declaration_codegen():
+    src = "let matrix: integer[][] = [[1, 2], [3, 4]];"
+    parser, tree = parse_src(src)
+    stb, errors = build_symbols(tree)
+    tc, errors  = type_check(stb, errors, parser, tree)
+    cg = gen_code(tree)
+
+    assert not errors.errors
+    assert any(q["op"] == "newarr" and q["arg1"] == "ref" and q["arg2"] == 2 and q["result"] == "t1" for q in cg.quadruples)
+    
+    expected_inner_arrays = [
+        [1, 2],
+        [3, 4]
+    ]
+    
+    for i, inner in enumerate(expected_inner_arrays):
+        inner_size = len(inner)
+        inner_temp = f"t{i + 2}"
+        
+        assert any(q["op"] == "newarr" and q["arg1"] == "ref" and q["arg2"] == inner_size and q["result"] == inner_temp for q in cg.quadruples)
+        
+        for j, val in enumerate(inner):
+            assert any(
+                q["op"] == "[]=" and q["arg1"] == inner_temp and q["arg2"] == j and q["result"] == val
+                for q in cg.quadruples
+            )
+        
+        assert any(q["op"] == "[]=" and q["arg1"] == "t1" and q["arg2"] == i and q["result"] == inner_temp for q in cg.quadruples)
+    
+    assert any(q["op"] == "=" and q["arg1"] == "t1" and q["result"] == "matrix" for q in cg.quadruples)
