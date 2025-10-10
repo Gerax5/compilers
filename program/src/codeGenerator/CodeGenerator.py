@@ -597,8 +597,6 @@ class CodeGenerator(CompiscriptVisitor):
         self.emit("label", None, None, Lend)
         return None
 
-
-
     # Continue
     def visitContinueStatement(self, ctx):
         if not self.loop_stack:
