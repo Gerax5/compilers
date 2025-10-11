@@ -14,6 +14,10 @@ class CodeGenerator(CompiscriptVisitor):
         self.quadruples = []
         self.counter = 0
 
+        self.label_counter = 0
+        self.loop_stack = []
+        self.switch_stack = []
+
     def emit(self, op, arg1, arg2, result):
         quad = {
             "id": self.counter,
@@ -25,6 +29,10 @@ class CodeGenerator(CompiscriptVisitor):
         self.quadruples.append(quad)
         self.counter += 1
         return quad["id"]
+    
+    def new_label(self, hint="L"):
+        self.label_counter += 1
+        return f"{hint}{self.label_counter}"
 
     
     # EXPR
@@ -342,6 +350,15 @@ class CodeGenerator(CompiscriptVisitor):
             self.temp_manager.release_temp(right)
 
         return temp
+    
+    # Herencia
+    def visitThisExpr(self, ctx):
+        return "this"
+
+    def visitSuperExpr(self, ctx):
+        # place simbólico el runtime/VM debe despachar al método de la superclase
+        return "super"
+
 
     # EXTRA FUNCTION
     def visitPrintStatement(self, ctx):
@@ -518,7 +535,136 @@ class CodeGenerator(CompiscriptVisitor):
 
         return arr_temp
 
+    # While
+    def visitWhileStatement(self, ctx):
+        Ltest = self.new_label("Lwhile_test_")
+        Lbody = self.new_label("Lwhile_body_")
+        Lend  = self.new_label("Lwhile_end_")
 
+        self.loop_stack.append((Ltest, Lend))
+
+        self.emit("label", None, None, Ltest)
+        cond = self.visit(ctx.expression())
+        self.emit("ifFalse", cond, None, Lend)
+
+        if isinstance(cond, str) and cond.startswith("t"):
+            self.temp_manager.release_temp(cond)
+
+        self.emit("label", None, None, Lbody)
+        if getattr(ctx, "block", None) and ctx.block():
+            self.visit(ctx.block())
+
+        self.emit("goto", None, None, Ltest)
+        self.emit("label", None, None, Lend)
+
+        self.loop_stack.pop()
+        return None
+    
+    # Try / Catch
+    def visitTryCatchStatement(self, ctx):
+        # try block 'catch' '(' Identifier ')' block
+        blocks = ctx.block() or []
+        try_block = blocks[0] if len(blocks) >= 1 else None
+        catch_block = blocks[1] if len(blocks) >= 2 else None
+
+        Lcatch = self.new_label("Lcatch_")
+        Lend   = self.new_label("Ltry_end_")
+
+        # Instala handler
+        self.emit("trybegin", None, None, Lcatch)
+
+        if try_block:
+            self.visit(try_block)
+
+        # Cierra try y salta al final
+        self.emit("tryend", None, None, None)
+        self.emit("goto", None, None, Lend)
+
+        # Catch
+        self.emit("label", None, None, Lcatch)
+
+        # Si hay nombre de excepción, asígnalo
+        if getattr(ctx, "Identifier", None) and ctx.Identifier():
+            ex_name = ctx.Identifier().getText()
+            self.emit("=", "exception", None, ex_name)
+
+        if catch_block:
+            self.visit(catch_block)
+
+        self.emit("label", None, None, Lend)
+        return None
+
+    # Continue
+    def visitContinueStatement(self, ctx):
+        if not self.loop_stack:
+            # TypeChecker ya reporta el error aquí evita crashear
+            return None
+        Lcontinue, _ = self.loop_stack[-1]
+        self.emit("goto", None, None, Lcontinue)
+        return None
+
+    # Break
+    def visitBreakStatement(self, ctx):
+        # break en bucle rompe el bucle si en switch, rompe el switch
+        if self.switch_stack:
+            Lbreak = self.switch_stack[-1]
+            self.emit("goto", None, None, Lbreak)
+            return None
+        if self.loop_stack:
+            _, Lbreak = self.loop_stack[-1]
+            self.emit("goto", None, None, Lbreak)
+            return None
+        # fuera de contexto TypeChecker ya lo marco
+        return None
+    
+    # Switch
+    def visitSwitchStatement(self, ctx):
+        # switch (expr) { case v1: ...; case v2: ...; default: ... }
+        scrut = self.visit(ctx.expression())
+
+        cases = list(ctx.switchCase() or [])
+        default_ctx = ctx.defaultCase()
+
+        case_labels = [self.new_label("Lcase_") for _ in cases]
+        Ldefault = self.new_label("Ldefault_") if default_ctx else None
+        Lend = self.new_label("Lswitch_end_")
+
+        self.switch_stack.append(Lend)
+
+        for i, sc in enumerate(cases):
+            ce = sc.expression()
+            cv = self.visit(ce) if ce else None
+            t = self.temp_manager.new_temp()
+            self.emit("==", scrut, cv, t)
+            self.emit("ifTrue", t, None, case_labels[i])
+
+            if isinstance(t, str) and t.startswith("t"):
+                self.temp_manager.release_temp(t)
+            if isinstance(cv, str) and isinstance(cv, str) and str(cv).startswith("t"):
+                self.temp_manager.release_temp(cv)
+
+        # Si no coincidió ningún case, ve a default o fin
+        self.emit("goto", None, None, Ldefault if Ldefault else Lend)
+
+        for i, sc in enumerate(cases):
+            self.emit("label", None, None, case_labels[i])
+            for st in (sc.statement() or []):
+                self.visit(st)
+
+        # Default
+        if default_ctx:
+            self.emit("label", None, None, Ldefault)
+            for st in (default_ctx.statement() or []):
+                self.visit(st)
+
+        # End del switch
+        self.emit("label", None, None, Lend)
+
+        if isinstance(scrut, str) and scrut.startswith("t"):
+            self.temp_manager.release_temp(scrut)
+
+        self.switch_stack.pop()
+        return None
 
     def visitIdentifierExpr(self, ctx):
         return ctx.Identifier().getText()
