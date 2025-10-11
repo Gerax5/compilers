@@ -394,7 +394,6 @@ class CodeGenerator(CompiscriptVisitor):
         return temp
     
     def visitVariableDeclaration(self, ctx):
-        print("a")
         name = ctx.Identifier().getText()
         init = getattr(ctx, "initializer", None) and ctx.initializer()
         if init:
@@ -424,7 +423,6 @@ class CodeGenerator(CompiscriptVisitor):
         return self.visitChildren(ctx)
     
     def visitArrayLiteralExpr(self, ctx):
-        print("HOAL")
         elems = ctx.expression() or []
 
         size = len(elems)
@@ -479,7 +477,6 @@ class CodeGenerator(CompiscriptVisitor):
         return self.visitChildren(ctx)
 
     def visitLiteralExpr(self, ctx):
-        print("b")
         tok = ctx.getChild(0)
         if not isinstance(tok, TerminalNode):
             return self.visit(tok)

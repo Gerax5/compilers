@@ -384,6 +384,11 @@ class TypeChecker(CompiscriptVisitor):
             expr = getattr(init, "expression", None) and init.expression()
             init_ty = self.visit(expr) if expr else self.visit(init)
 
+        if getattr(declared_ty, "kind", None) == "class" and init is None:
+            self.errors.err_ctx(ctx, f"Variable '{name}' de tipo clase '{declared_ty.name}' requiere inicialización con 'new {declared_ty.name}()'")
+            return None
+
+
         if declared_ty == Type.NULL and isinstance(init_ty, ArrayType) and init_ty.base == Type.NULL:
             if getattr(init_ty, "empty", False):
                 self.errors.err_ctx(ctx, f"Variable '{name}': no se puede inferir el tipo a partir de un arreglo vacío, por favor agrega una anotación de tipo")

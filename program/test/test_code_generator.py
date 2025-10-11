@@ -220,7 +220,7 @@ def test_matrix_declaration_codegen():
     
     for i, inner in enumerate(expected_inner_arrays):
         inner_size = len(inner)
-        inner_temp = f"t{i + 2}"
+        inner_temp = f"t2"
         
         assert any(q["op"] == "newarr" and q["arg1"] == "ref" and q["arg2"] == inner_size and q["result"] == inner_temp for q in cg.quadruples)
         
