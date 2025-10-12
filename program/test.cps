@@ -1,10 +1,9 @@
-do { 
-        const x: integer = 1;
-} while (true);
+class A {
+    function m(x: int): void {}
+}
 
-switch (true) {
-            case true:
-                break;   // permitido dentro de switch
-            default:
-                // nada
-        }
+class B: A {
+    function m(x: int): void {
+        const a: int = x;
+    }
+}

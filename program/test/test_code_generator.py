@@ -233,3 +233,121 @@ def test_matrix_declaration_codegen():
         assert any(q["op"] == "[]=" and q["arg1"] == "t1" and q["arg2"] == i and q["result"] == inner_temp for q in cg.quadruples)
     
     assert any(q["op"] == "=" and q["arg1"] == "t1" and q["result"] == "matrix" for q in cg.quadruples)
+
+def test_array_element_assignment_codegen():
+    src = """
+    let arr: integer[] = [1, 2, 3];
+    arr[0] = 10;
+    """
+    parser, tree = parse_src(src)
+    stb, errors = build_symbols(tree)
+    tc, errors  = type_check(stb, errors, parser, tree)
+    cg = gen_code(tree)
+
+    assert not errors.errors
+    assert any(q["op"] == "[]=" and q["arg1"] == "arr" and q["arg2"] == 0 and q["result"] == 10 for q in cg.quadruples)
+
+
+def test_for_statement_codegen():
+    src = """
+    for (let i = 0; i < 3; i = i + 1) {
+        print(i);
+    }
+    """
+    parser, tree = parse_src(src)
+    stb, errors = build_symbols(tree)
+    tc, errors = type_check(stb, errors, parser, tree)
+    cg = gen_code(tree)
+
+    assert not errors.errors, f"Errores de compilación: {errors.errors}"
+
+    quads = cg.quadruples
+
+    assert any(
+        q["op"] == "=" and q["arg1"] == 0 and q["result"] == "i"
+        for q in quads
+    ), "No se generó la asignación inicial i = 0"
+
+    assert any("Lfor_test_" in (q["result"] or "") for q in quads if q["op"] == "label"), "Falta label Lfor_test"
+    assert any("Lfor_body_" in (q["result"] or "") for q in quads if q["op"] == "label"), "Falta label Lfor_body"
+    assert any("Lfor_incr_" in (q["result"] or "") for q in quads if q["op"] == "label"), "Falta label Lfor_incr"
+    assert any("Lfor_end_" in (q["result"] or "") for q in quads if q["op"] == "label"), "Falta label Lfor_end"
+
+    assert any(
+        q["op"] == "<" and q["arg1"] == "i" and q["arg2"] == 3
+        for q in quads
+    ), "No se generó la comparación i < 3"
+
+    assert any(
+        q["op"] == "ifFalse" and "Lfor_end_" in str(q["result"])
+        for q in quads
+    ), "Falta el salto condicional ifFalse hacia Lfor_end"
+
+    assert any(
+        q["op"] == "print" and q["arg1"] == "i"
+        for q in quads
+    ), "No se generó print(i)"
+
+    assert any(
+        q["op"] == "+" and q["arg1"] == "i" and q["arg2"] == 1
+        for q in quads
+    ), "No se generó i + 1"
+
+    assert any(
+        q["op"] == "=" and isinstance(q["arg1"], str) and q["arg1"].startswith("t") and q["result"] == "i"
+        for q in quads
+    ), "No se reasignó el incremento a i"
+
+    assert any(
+        q["op"] == "goto" and "Lfor_test_" in str(q["result"])
+        for q in quads
+    ), "Falta salto goto hacia Lfor_test"
+
+    assert any(
+        q["op"] == "label" and "Lfor_end_" in q["result"]
+        for q in quads
+    ), "Falta etiqueta final Lfor_end"
+
+
+def test_foreach_codegen():
+    src = """
+    const arr = [5,1];
+    foreach (x in arr) {
+        print(x);
+    }
+    """
+    parser, tree = parse_src(src)
+    stb, errors = build_symbols(tree)
+    tc, errors = type_check(stb, errors, parser, tree)
+    cg = gen_code(tree)
+
+    assert not errors.errors, f"Errores en type checker: {errors.errors}"
+
+    quads = cg.quadruples
+
+    # --- Creación del arreglo ---
+    assert any(q["op"] == "newarr" and q["arg1"] == "ref" and q["arg2"] == 2 for q in quads)
+    assert any(q["op"] == "[]=" and q["arg2"] == 0 and q["result"] == 5 for q in quads)
+    assert any(q["op"] == "[]=" and q["arg2"] == 1 and q["result"] == 1 for q in quads)
+    assert any(q["op"] == "=" and q["arg1"] == "t1" and q["result"] == "arr" for q in quads)
+
+    # --- Inicio del foreach ---
+    assert any(q["op"] == "len" and q["arg1"] == "arr" for q in quads), "Debe calcularse la longitud del arreglo"
+    assert any(q["op"] == "<" and q["arg1"] == "t1" for q in quads), "Debe comparar índice con longitud"
+    assert any(q["op"] == "label" and "foreach_test" in q["result"] for q in quads), "Debe existir label de test"
+    assert any(q["op"] == "label" and "foreach_body" in q["result"] for q in quads), "Debe existir label de cuerpo"
+
+    # --- Cuerpo del foreach ---
+    assert any(q["op"] == "[]" and q["arg1"] == "arr" for q in quads), "Debe acceder al elemento actual"
+    assert any(q["op"] == "=" and q["result"] == "x" for q in quads), "Debe asignar el valor a la variable de iteración"
+    assert any(q["op"] == "print" and q["arg1"] == "x" for q in quads), "Debe imprimir el valor actual"
+
+    # --- Incremento y bucle ---
+    assert any(q["op"] == "+" and q["arg1"] == "t1" and q["arg2"] == 1 for q in quads), "Debe incrementar el índice"
+    assert any(q["op"] == "goto" and "foreach_test" in q["result"] for q in quads), "Debe saltar al inicio del foreach"
+    assert any(q["op"] == "label" and "foreach_end" in q["result"] for q in quads), "Debe existir label de fin del foreach"
+
+    op_order = [q["op"] for q in quads]
+    expected_ops = ["newarr", "[]=", "[]=", "=", "=", "label", "len", "<", "ifFalse", "label", "[]", "=", "print", "+", "=", "goto", "label"]
+    for op in expected_ops:
+        assert op in op_order, f"Falta operación esperada: {op}"

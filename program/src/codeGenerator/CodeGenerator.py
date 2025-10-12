@@ -172,7 +172,15 @@ class CodeGenerator(CompiscriptVisitor):
     def visitFunctionDeclaration(self, ctx):
         fname = ctx.Identifier().getText()
 
-        func_label = f"func_{fname}"
+        class_name = getattr(self, "current_class", None)
+
+        if class_name:
+            func_label = f"func_{class_name}_{fname}"
+            end_label = f"{class_name}.{fname}"
+        else:
+            func_label = f"func_{fname}"
+            end_label = fname
+
         self.emit("label", None, None, func_label)
 
         params_ctx = ctx.parameters()
@@ -185,8 +193,10 @@ class CodeGenerator(CompiscriptVisitor):
         if body:
             self.visit(body)
 
-        self.emit("endfunc", None, None, fname)
+        self.emit("endfunc", None, None, end_label)
+
         return None
+
 
     def visitReturnStatement(self, ctx):
         expr = getattr(ctx, "expression", None) and ctx.expression()
@@ -257,6 +267,7 @@ class CodeGenerator(CompiscriptVisitor):
 
     # CLASS
     def visitClassDeclaration(self, ctx):
+        prev_class = getattr(self, "current_class", None)
         idents = ctx.Identifier()
         if isinstance(idents, list):
             name = idents[0].getText()
@@ -266,9 +277,17 @@ class CodeGenerator(CompiscriptVisitor):
             super_name = None
 
         self.emit("class", super_name, None, name)
+        if super_name:
+            self.emit("inherit", super_name, None, name)
+
+        # Guardar nombre de clase actual
+        self.current_class = name
 
         for member in ctx.classMember() or []:
             self.visit(member)
+
+        # Restaurar clase anterior
+        self.current_class = prev_class
 
         self.emit("endclass", None, None, name)
         return name
@@ -359,6 +378,100 @@ class CodeGenerator(CompiscriptVisitor):
         # place simbólico el runtime/VM debe despachar al método de la superclase
         return "super"
 
+    # FOR
+    def visitForStatement(self, ctx):
+        Ltest = self.new_label("Lfor_test_")
+        Lbody = self.new_label("Lfor_body_")
+        Lincr = self.new_label("Lfor_incr_")
+        Lend  = self.new_label("Lfor_end_")
+
+        self.loop_stack.append((Ltest, Lend))
+
+        exprs = list(ctx.expression() or [])
+
+        if hasattr(ctx, "variableDeclaration") and ctx.variableDeclaration():
+            self.visit(ctx.variableDeclaration())
+            cond_expr = exprs[0] if len(exprs) >= 1 else None
+            incr_expr = exprs[1] if len(exprs) >= 2 else None
+        else:
+            init_expr = exprs[0] if len(exprs) >= 1 else None
+            cond_expr = exprs[1] if len(exprs) >= 2 else None
+            incr_expr = exprs[2] if len(exprs) >= 3 else None
+            if init_expr:
+                self.visit(init_expr)
+
+        self.emit("label", None, None, Ltest)
+
+        if cond_expr:
+            cond_place = self.visit(cond_expr)
+            self.emit("ifFalse", cond_place, None, Lend)
+            if isinstance(cond_place, str) and cond_place.startswith("t"):
+                self.temp_manager.release_temp(cond_place)
+
+        self.emit("label", None, None, Lbody)
+
+        if hasattr(ctx, "block") and ctx.block():
+            self.visit(ctx.block())
+
+        if incr_expr:
+            self.emit("label", None, None, Lincr)
+            self.visit(incr_expr)
+
+        self.emit("goto", None, None, Ltest)
+
+        self.emit("label", None, None, Lend)
+
+        self.loop_stack.pop()
+        return None
+
+    def visitForeachStatement(self, ctx):
+        Ltest = self.new_label("Lforeach_test_")
+        Lbody = self.new_label("Lforeach_body_")
+        Lend  = self.new_label("Lforeach_end_")
+
+        self.loop_stack.append((Ltest, Lend))
+
+        iterator_temp = self.temp_manager.new_temp()  # i = 0
+        self.emit("=", 0, None, iterator_temp)
+
+        coll_expr = getattr(ctx, "expression", None) and ctx.expression()
+        coll_place = self.visit(coll_expr)
+
+        name = getattr(ctx, "Identifier", None) and ctx.Identifier().getText()
+
+        self.emit("label", None, None, Ltest)
+
+        len_temp = self.temp_manager.new_temp()
+        self.emit("len", coll_place, None, len_temp)
+
+        cond_temp = self.temp_manager.new_temp()
+        self.emit("<", iterator_temp, len_temp, cond_temp)
+        self.emit("ifFalse", cond_temp, None, Lend)
+
+        self.emit("label", None, None, Lbody)
+
+        elem_temp = self.temp_manager.new_temp()
+        self.emit("[]", coll_place, iterator_temp, elem_temp)
+        self.emit("=", elem_temp, None, name)
+
+        if isinstance(elem_temp, str) and elem_temp.startswith("t"):
+            self.temp_manager.release_temp(elem_temp)
+
+        body = getattr(ctx, "block", None) and ctx.block()
+        if body:
+            self.visit(body)
+
+        incr_temp = self.temp_manager.new_temp()
+        self.emit("+", iterator_temp, 1, incr_temp)
+        self.emit("=", incr_temp, None, iterator_temp)
+
+        self.emit("goto", None, None, Ltest)
+
+        self.emit("label", None, None, Lend)
+
+        self.loop_stack.pop()
+        return None
+
 
     # EXTRA FUNCTION
     def visitPrintStatement(self, ctx):
@@ -384,7 +497,6 @@ class CodeGenerator(CompiscriptVisitor):
             return left
 
         elif len(exps) == 2:
-            print(exps[0].getText())
             recv_place = self.visit(exps[0])
             rhs_place  = self.visit(exps[1])
             self.emit("setprop", recv_place, rhs_place, left)
@@ -395,6 +507,80 @@ class CodeGenerator(CompiscriptVisitor):
             return left
 
         return self.visitChildren(ctx)
+
+    def visitAssignExpr(self, ctx):
+        rhs_place = self.visit(ctx.assignmentExpr())
+
+        lhs = ctx.leftHandSide()
+        cur_place = self.visit(lhs.primaryAtom())   
+        suffixes = list(lhs.suffixOp() or [])
+
+
+        if not suffixes:
+            self.emit("=", rhs_place, None, cur_place)
+            if isinstance(rhs_place, str) and rhs_place.startswith("t"):
+                self.temp_manager.release_temp(rhs_place)
+            return cur_place
+
+        for s in suffixes[:-1]:
+            kind = s.getChild(0).getText()
+
+            if kind == '[':
+                idx_val = self.visit(s.expression())
+                temp = self.temp_manager.new_temp()
+                self.emit("[]", cur_place, idx_val, temp)
+
+                if isinstance(cur_place, str) and cur_place.startswith("t"):
+                    self.temp_manager.release_temp(cur_place)
+                if isinstance(idx_val, str) and idx_val.startswith("t"):
+                    self.temp_manager.release_temp(idx_val)
+
+                cur_place = temp
+                continue
+
+            if kind == '.':
+                prop = s.Identifier().getText()
+                temp = self.temp_manager.new_temp()
+                self.emit("getprop", cur_place, prop, temp)
+
+                if isinstance(cur_place, str) and cur_place.startswith("t"):
+                    self.temp_manager.release_temp(cur_place)
+
+                cur_place = temp
+                continue
+
+            if kind == '(':
+                return cur_place
+
+        last = suffixes[-1]
+        last_kind = last.getChild(0).getText()
+
+
+        if last_kind == '[':
+            idx_val = self.visit(last.expression())
+            self.emit("[]=", cur_place, idx_val, rhs_place)
+
+            # liberar temporales
+            if isinstance(rhs_place, str) and rhs_place.startswith("t"):
+                self.temp_manager.release_temp(rhs_place)
+            if isinstance(idx_val, str) and idx_val.startswith("t"):
+                self.temp_manager.release_temp(idx_val)
+
+            return cur_place
+
+        if last_kind == '.':
+            prop = last.Identifier().getText()
+            self.emit("setprop", cur_place, rhs_place, prop)
+
+            if isinstance(rhs_place, str) and rhs_place.startswith("t"):
+                self.temp_manager.release_temp(rhs_place)
+            return cur_place
+
+        if last_kind == '(':
+            return cur_place
+
+        return cur_place
+
     
     def visitIndexExpr(self, ctx):
         arr_place = self.visit(ctx.parentCtx.getChild(0))
@@ -559,7 +745,7 @@ class CodeGenerator(CompiscriptVisitor):
 
         self.loop_stack.pop()
         return None
-    
+        
     # Try / Catch
     def visitTryCatchStatement(self, ctx):
         # try block 'catch' '(' Identifier ')' block
