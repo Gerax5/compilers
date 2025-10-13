@@ -745,6 +745,35 @@ class CodeGenerator(CompiscriptVisitor):
 
         self.loop_stack.pop()
         return None
+
+    # Do while
+    def visitDoWhileStatement(self, ctx):
+        Lbody = self.new_label("Ldowhile_body_")
+        Lcond = self.new_label("Ldowhile_cond_")
+        Lend  = self.new_label("Ldowhile_end_")
+
+        self.loop_stack.append((Lcond, Lend))
+
+        self.emit("label", None, None, Lbody)
+
+        body = getattr(ctx, "block", None) and ctx.block()
+        if body:
+            self.visit(body)
+
+        self.emit("label", None, None, Lcond)
+
+        cond = ctx.expression()
+        if cond:
+            cond_val = self.visit(cond)
+            self.emit("ifTrue", cond_val, None, Lbody)
+            if isinstance(cond_val, str) and cond_val.startswith("t"):
+                self.temp_manager.release_temp(cond_val)
+
+        self.emit("label", None, None, Lend)
+
+        self.loop_stack.pop()
+        return None
+
         
     # Try / Catch
     def visitTryCatchStatement(self, ctx):
