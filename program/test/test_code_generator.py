@@ -351,3 +351,230 @@ def test_foreach_codegen():
     expected_ops = ["newarr", "[]=", "[]=", "=", "=", "label", "len", "<", "ifFalse", "label", "[]", "=", "print", "+", "=", "goto", "label"]
     for op in expected_ops:
         assert op in op_order, f"Falta operación esperada: {op}"
+
+# While
+# ----- Exito
+def test_while_codegen_success():
+    src = """
+    let i: integer = 0;
+    while (i < 3) {
+        print(i);
+        i = i + 1;
+    }
+    """
+    parser, tree = parse_src(src)
+    stb, errors = build_symbols(tree)
+    tc, errors  = type_check(stb, errors, parser, tree)
+    cg = gen_code(tree)
+
+    assert not errors.errors
+
+    quads = cg.quadruples
+    assert any(q["op"] == "label" and "Lwhile_test_" in q["result"] for q in quads)
+    assert any(q["op"] == "label" and "Lwhile_body_" in q["result"] for q in quads)
+    assert any(q["op"] == "label" and "Lwhile_end_"  in q["result"] for q in quads)
+    assert any(q["op"] == "<" and q["arg1"] == "i" and q["arg2"] == 3 for q in quads)
+    assert any(q["op"] == "ifFalse" and "Lwhile_end_" in str(q["result"]) for q in quads)
+    assert any(q["op"] == "print" and q["arg1"] == "i" for q in quads)
+    assert any(q["op"] == "+" and q["arg1"] == "i" and q["arg2"] == 1 for q in quads)
+    assert any(q["op"] == "goto" and "Lwhile_test_" in str(q["result"]) for q in quads)
+
+# ----- Fallo
+def test_while_condition_not_bool_failure():
+    src = """
+    while (42) { print(1); }   // int no es bool
+    """
+    parser, tree = parse_src(src)
+    stb, errors = build_symbols(tree)
+    tc, errors  = type_check(stb, errors, parser, tree)
+
+    assert errors.errors, "Se esperaba error de tipo en condición de while"
+
+# do while
+# ----- Exito
+def test_dowhile_codegen_success():
+    src = """
+    let i: integer = 0;
+    do {
+        print(i);
+        i = i + 1;
+    } while (i < 2);
+    """
+    parser, tree = parse_src(src)
+    stb, errors = build_symbols(tree)
+    tc, errors  = type_check(stb, errors, parser, tree)
+    cg = gen_code(tree)
+
+    assert not errors.errors
+
+    quads = cg.quadruples
+    assert any(q["op"] == "label" and "Ldowhile_body_" in q["result"] for q in quads)
+    assert any(q["op"] == "label" and "Ldowhile_cond_" in q["result"] for q in quads)
+    assert any(q["op"] == "label" and "Ldowhile_end_"  in q["result"] for q in quads)
+    assert any(q["op"] == "ifTrue" and "Ldowhile_body_" in str(q["result"]) for q in quads)
+
+# ----- Fallo
+def test_dowhile_condition_not_bool_failure():
+    src = """
+    do { print(1); } while (2);   // int no es bool
+    """
+    parser, tree = parse_src(src)
+    stb, errors = build_symbols(tree)
+    tc, errors  = type_check(stb, errors, parser, tree)
+
+    assert errors.errors, "Se esperaba error de tipo en condición de do-while"
+
+# Try / Catch
+# ----- Exito
+def test_try_catch_codegen_success():
+    src = """
+    try {
+        print(1);
+    } catch (e) {
+        print(e);
+    }
+    """
+    parser, tree = parse_src(src)
+    stb, errors = build_symbols(tree)
+    tc, errors  = type_check(stb, errors, parser, tree)
+    cg = gen_code(tree)
+
+    assert not errors.errors
+
+    quads = cg.quadruples
+    assert any(q["op"] == "trybegin" for q in quads)
+    assert any(q["op"] == "tryend"   for q in quads)
+    assert any(q["op"] == "label" and "Lcatch_"    in q["result"] for q in quads)
+    assert any(q["op"] == "label" and "Ltry_end_"  in q["result"] for q in quads)
+    assert any(q["op"] == "=" and q["arg1"] == "exception" and q["result"] == "e" for q in quads)
+
+# Continue
+# ----- Exito
+def test_continue_in_loop_codegen_success():
+    src = """
+    let i: integer = 0;
+    while (i < 2) {
+        continue;
+        i = i + 1;   // no debería ejecutarse si continue salta
+    }
+    """
+    parser, tree = parse_src(src)
+    stb, errors = build_symbols(tree)
+    tc, errors  = type_check(stb, errors, parser, tree)
+    cg = gen_code(tree)
+
+    assert not errors.errors
+
+    quads = cg.quadruples
+    # continue en while salta a Lwhile_test_ (tu pila mapea continue → Ltest)
+    assert any(q["op"] == "goto" and "Lwhile_test_" in str(q["result"]) for q in quads)
+
+
+# ----- Fallo
+def test_continue_outside_loop_failure():
+    src = """
+    continue;
+    """
+    parser, tree = parse_src(src)
+    stb, errors = build_symbols(tree)
+    tc, errors  = type_check(stb, errors, parser, tree)
+
+    assert errors.errors, "Se esperaba error por 'continue' fuera de bucle"
+
+# Break
+# ----- Exito
+def test_break_in_loop_codegen_success():
+    src = """
+    let i: integer = 0;
+    while (i < 10) {
+        break;
+    }
+    """
+    parser, tree = parse_src(src)
+    stb, errors = build_symbols(tree)
+    tc, errors  = type_check(stb, errors, parser, tree)
+    cg = gen_code(tree)
+
+    assert not errors.errors
+
+    quads = cg.quadruples
+    # break en while debe saltar a Lwhile_end_
+    assert any(q["op"] == "goto" and "Lwhile_end_" in str(q["result"]) for q in quads)
+
+# ----- Fallo
+def test_break_outside_loop_or_switch_failure():
+    src = """
+    break;
+    """
+    parser, tree = parse_src(src)
+    stb, errors = build_symbols(tree)
+    tc, errors  = type_check(stb, errors, parser, tree)
+
+    assert errors.errors, "Se esperaba error por 'break' fuera de bucle o switch"
+
+# Switch
+# ----- Exito
+def test_switch_basic_codegen_success():
+    src = """
+    switch (true) {
+        case true:
+            print(1);
+            break;
+        default:
+            print(2);
+    }
+    """
+    parser, tree = parse_src(src)
+    stb, errors = build_symbols(tree)
+    tc, errors  = type_check(stb, errors, parser, tree)
+    cg = gen_code(tree)
+
+    assert not errors.errors
+
+    quads = cg.quadruples
+    assert any(q["op"] == "label" and "Lswitch_end_" in q["result"] for q in quads)
+    # Debe existir la comparación == entre scrutinee y case
+    assert any(q["op"] == "==" for q in quads)
+    # Y un ifTrue saltando a un Lcase_
+    assert any(q["op"] == "ifTrue" and str(q["result"]).startswith("Lcase_") for q in quads)
+    # El break debe saltar a Lswitch_end_
+    assert any(q["op"] == "goto" and "Lswitch_end_" in str(q["result"]) for q in quads)
+
+def test_switch_no_default_fallthrough_success():
+    src = """
+    let x: boolean = true;
+    switch (x) {
+        case false:
+            print(0);
+        case true:
+            print(1);
+            break;
+    }
+    """
+    parser, tree = parse_src(src)
+    stb, errors = build_symbols(tree)
+    tc, errors  = type_check(stb, errors, parser, tree)
+    cg = gen_code(tree)
+
+    assert not errors.errors
+
+    quads = cg.quadruples
+    # Debe existir al menos un label de case y el end
+    assert any(q["op"] == "label" and "Lcase_" in q["result"] for q in quads)
+    assert any(q["op"] == "label" and "Lswitch_end_" in q["result"] for q in quads)
+
+
+# ----- Fallo
+def test_switch_incompatible_case_type_failure():
+    src = """
+    switch (true) {
+        case 1:        // incompatible con bool
+            print(1);
+    }
+    """
+    parser, tree = parse_src(src)
+    stb, errors = build_symbols(tree)
+    tc, errors  = type_check(stb, errors, parser, tree)
+
+    assert errors.errors, "Se esperaba error por case incompatible con switch(bool)"
+
