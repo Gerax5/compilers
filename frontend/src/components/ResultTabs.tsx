@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import type { AnalyzeError, ScopeNode, Quad } from "../types/analysis";
 import { ErrorList } from "./ErrorList";
 import { Button } from "./Button";
-import SymtabPane from "./SymtabPane";
+import { SymtabPane } from "./SymtabPane";
 import TacTable from "./TacTable";
 
 type Props = {

@@ -1,17 +1,13 @@
 import React, { useMemo, useState } from "react";
 import type { ScopeNode, SymEntry } from "../types/analysis";
 
-function Tree({
-  node,
-  selected,
-  onSelect,
-  level = 0,
-}: {
+type TreeProps = {
   node: ScopeNode;
   selected?: string;
   onSelect: (id: string) => void;
   level?: number;
-}) {
+};
+const Tree: React.FC<TreeProps> = ({ node, selected, onSelect, level }) => {
   const isSel = selected === node.id;
   return (
     <div>
@@ -41,82 +37,58 @@ function Tree({
       ))}
     </div>
   );
-}
+};
 
-function SymbolsTable({ entries }: { entries: SymEntry[] }) {
+const SymbolsTable = ({ entries }: { entries: SymEntry[] }) => {
+  const th = {
+    textAlign: "left" as const,
+    borderBottom: "1px solid #ddd",
+    padding: 6,
+  };
+
+  const td = { borderBottom: "1px solid #eee", padding: 6 };
+
   if (!entries?.length) return <div>Sin símbolos en este scope</div>;
   return (
     <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
       <thead>
         <tr>
-          <th
-            style={{
-              textAlign: "left",
-              borderBottom: "1px solid #ddd",
-              padding: 6,
-            }}
-          >
-            Kind
-          </th>
-          <th
-            style={{
-              textAlign: "left",
-              borderBottom: "1px solid #ddd",
-              padding: 6,
-            }}
-          >
-            Nombre
-          </th>
-          <th
-            style={{
-              textAlign: "left",
-              borderBottom: "1px solid #ddd",
-              padding: 6,
-            }}
-          >
-            Tipo / Firma
-          </th>
+          <th style={th}>Kind</th>
+          <th style={th}>Nombre</th>
+          <th style={th}>Tipo / Firma</th>
+          <th style={th}>Size</th>
         </tr>
       </thead>
       <tbody>
         {entries.map((e, i) => {
           let typeOrSig = "";
           if (e.kind === "func") {
-            const params = e.params
-              .map((p) => `${p.name}: ${p.type}`)
-              .join(", ");
+            const params =
+              e.params?.map((p) => `${p.name}: ${p.type}`).join(", ") ?? "";
             typeOrSig = `(${params}) => ${e.returnType}`;
           } else if (e.kind === "class") {
             typeOrSig = e.super ? `extends ${e.super}` : "";
           } else {
-            typeOrSig = e.type;
+            typeOrSig = e.type ?? "";
           }
+
+          const size = e.size ?? "";
+
           return (
             <tr key={i}>
-              <td style={{ borderBottom: "1px solid #eee", padding: 6 }}>
-                {e.kind}
-              </td>
-              <td style={{ borderBottom: "1px solid #eee", padding: 6 }}>
-                {e.name}
-              </td>
-              <td
-                style={{
-                  borderBottom: "1px solid #eee",
-                  padding: 6,
-                  fontFamily: "monospace",
-                }}
-              >
-                {typeOrSig}
-              </td>
+              <td style={td}>{e.kind}</td>
+              <td style={td}>{e.name}</td>
+              <td style={{ ...td, fontFamily: "monospace" }}>{typeOrSig}</td>
+              <td style={{ ...td, fontFamily: "monospace" }}>{size}</td>
             </tr>
           );
         })}
       </tbody>
     </table>
   );
-}
+};
 
-export default function SymtabPane({ root }: { root?: ScopeNode }) {
+export const SymtabPane = ({ root }: { root?: ScopeNode }) => {
   const [selected, setSelected] = useState<string | undefined>(root?.id);
   const map = useMemo(() => {
     const m = new Map<string, ScopeNode>();
@@ -155,4 +127,4 @@ export default function SymtabPane({ root }: { root?: ScopeNode }) {
       </div>
     </div>
   );
-}
+};

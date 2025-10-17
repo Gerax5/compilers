@@ -23,14 +23,25 @@ export interface AnalyzeResp {
 }
 
 export type SymEntry =
-  | { kind: "var" | "const"; name: string; type: string }
+  | {
+      kind: "var" | "const";
+      name: string;
+      type: string;
+      size?: number | null;
+    }
   | {
       kind: "func";
       name: string;
       returnType: string;
       params: { name: string; type: string }[];
+      size?: number | null;
     }
-  | { kind: "class"; name: string; super?: string | null };
+  | {
+      kind: "class";
+      name: string;
+      super?: string | null;
+      size?: number | null;
+    };
 
 export interface ScopeNode {
   id: string;

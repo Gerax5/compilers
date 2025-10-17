@@ -55,34 +55,43 @@ def _sym_to_json(sym):
     kind = getattr(sym, "kind", None)
     name = getattr(sym, "name", "?")
 
+    def mem_meta(s):
+        return {
+            "size": getattr(s, "size", None),
+        }
+
     if kind in ("var", "const") or hasattr(sym, "is_const"):
         is_const = getattr(sym, "is_const", False)
-        return {
+        base = {
             "kind": "const" if is_const else "var",
             "name": name,
             "type": _ty_to_str(getattr(sym, "ty", Type.NULL)),
         }
+
+        return {**base, **mem_meta(sym)}
     
     if kind == "func":
         ret = _ty_to_str(getattr(sym, "ty", Type.VOID))
         params = [ _param_to_json(p) for p in getattr(sym, "params", []) ]
-        return {
+        base = {
             "kind": "func",
             "name": name,
             "returnType": ret,
             "params": params,
         }
+        return {**base, **mem_meta(sym)}
     
     if kind == "class":
         sup = getattr(sym, "superclass", None)
         super_name = getattr(sup, "name", None) if sup else None
-        return {
+        base = {
             "kind": "class",
             "name": name,
             "super": super_name,
         }
+        return {**base, **mem_meta(sym)}
     
-    return {"kind": kind or "symbol", "name": name}
+    return {"kind": kind or "symbol", "name": name, **mem_meta(sym)}
 
 def _build_symtab_json(global_scope, scopes_dict_values):
     all_scopes = set([global_scope])
