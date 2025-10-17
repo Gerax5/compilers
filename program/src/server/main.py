@@ -5,6 +5,8 @@ from antlr4 import InputStream, CommonTokenStream # type: ignore
 from CompiscriptLexer import CompiscriptLexer
 from CompiscriptParser import CompiscriptParser
 from antlr4 import ParseTreeWalker # type: ignore
+from src.utils.Temp import TempManager
+from src.codeGenerator.CodeGenerator import CodeGenerator
 
 from src.utils.Errors import Error
 from src.symbolTable.SymbolTableBuilder import SymbolTableBuilder
@@ -146,6 +148,12 @@ def analyze(req: AnalyzeReq):
     tc = TypeChecker(st.scopes, st.globalScope, errors, parser)
     tc.visit(tree)
 
+    temp_manager = TempManager()
+    generator = CodeGenerator(temp_manager)
+    generator.visit(tree)
+
+    tac = generator.quadruples  # lista de {id, op, arg1, arg2, result}
+
     # símbolos globales rápidos para la vista
     globalsyms = sorted(list(st.globalScope.symbols.keys()))
     symtab_root = _build_symtab_json(st.globalScope, list(st.scopes.values()))
@@ -153,5 +161,6 @@ def analyze(req: AnalyzeReq):
     return {
         "errors": _errors_to_json(errors.errors), 
         "globals": globalsyms, 
-        "symtab": symtab_root
+        "symtab": symtab_root,
+        "tac": tac
     }

@@ -7,10 +7,19 @@ export interface AnalyzeError {
   severity: Severity;
 }
 
+export interface Quad {
+  id: number;
+  op: string | null;
+  arg1: string | number | boolean | null;
+  arg2: string | number | boolean | null;
+  result: string | number | boolean | null;
+}
+
 export interface AnalyzeResp {
   errors: AnalyzeError[];
   globals: string[];
   symtab?: ScopeNode;
+  tac?: Quad[];
 }
 
 export type SymEntry =
