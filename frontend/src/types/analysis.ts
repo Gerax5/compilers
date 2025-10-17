@@ -28,6 +28,7 @@ export type SymEntry =
       name: string;
       type: string;
       size?: number | null;
+      address?: number | string | null;
     }
   | {
       kind: "func";
@@ -35,12 +36,14 @@ export type SymEntry =
       returnType: string;
       params: { name: string; type: string }[];
       size?: number | null;
+      address?: number | string | null;
     }
   | {
       kind: "class";
       name: string;
       super?: string | null;
       size?: number | null;
+      address?: number | string | null;
     };
 
 export interface ScopeNode {

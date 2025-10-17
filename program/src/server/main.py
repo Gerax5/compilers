@@ -58,6 +58,7 @@ def _sym_to_json(sym):
     def mem_meta(s):
         return {
             "size": getattr(s, "size", None),
+            "address": getattr(s, "address", None),
         }
 
     if kind in ("var", "const") or hasattr(sym, "is_const"):

@@ -57,6 +57,7 @@ const SymbolsTable = ({ entries }: { entries: SymEntry[] }) => {
           <th style={th}>Nombre</th>
           <th style={th}>Tipo / Firma</th>
           <th style={th}>Size</th>
+          <th style={th}>Adress</th>
         </tr>
       </thead>
       <tbody>
@@ -73,6 +74,7 @@ const SymbolsTable = ({ entries }: { entries: SymEntry[] }) => {
           }
 
           const size = e.size ?? "";
+          const address = e.address ?? "";
 
           return (
             <tr key={i}>
@@ -80,6 +82,7 @@ const SymbolsTable = ({ entries }: { entries: SymEntry[] }) => {
               <td style={td}>{e.name}</td>
               <td style={{ ...td, fontFamily: "monospace" }}>{typeOrSig}</td>
               <td style={{ ...td, fontFamily: "monospace" }}>{size}</td>
+              <td style={{ ...td, fontFamily: "monospace" }}>{address}</td>
             </tr>
           );
         })}
