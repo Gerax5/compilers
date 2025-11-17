@@ -13,6 +13,7 @@ class CodeGenerator(CompiscriptVisitor):
         self.temp_manager = temp_manager
         self.quadruples = []
         self.counter = 0
+        self.arr_id = 0
 
         self.label_counter = 0
         self.loop_stack = []
@@ -646,15 +647,16 @@ class CodeGenerator(CompiscriptVisitor):
         elems = ctx.expression() or []
         size = len(elems)
 
-        arr_temp = self.temp_manager.new_temp()
+        arr_temp = f"arr_{self.arr_id}"#self.temp_manager.new_temp()
+        self.arr_id += 1
         self.emit("newarr", "ref", size, arr_temp) 
 
         for i, e in enumerate(elems):
             val = self.visit(e)
             self.emit("[]=", arr_temp, i, val)
 
-            if isinstance(val, str) and val.startswith("t"):
-                self.temp_manager.release_temp(val)
+            # if isinstance(val, str) and val.startswith("t"):
+            #     self.temp_manager.release_temp(val)
 
         return arr_temp
 

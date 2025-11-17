@@ -1,9 +1,3 @@
-class A {
-    function m(x: int): void {}
-}
-
-class B: A {
-    function m(x: int): void {
-        const a: int = x;
-    }
+function makeAdder(x: integer): integer {
+  return x + 1;
 }

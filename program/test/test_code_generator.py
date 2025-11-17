@@ -194,14 +194,14 @@ def test_array_declaration_codegen():
     cg = gen_code(tree)
 
     assert not errors.errors
-    assert any(q["op"] == "newarr" and q["arg1"] == "ref" and q["arg2"] == 5 and q["result"] == "t1" for q in cg.quadruples)
+    assert any(q["op"] == "newarr" and q["arg1"] == "ref" and q["arg2"] == 5 and q["result"] == "arr_0" for q in cg.quadruples)
     expected_values = [1, 2, 3, 4, 5]
     for idx, val in enumerate(expected_values):
         assert any(
-            q["op"] == "[]=" and q["arg1"] == "t1" and q["arg2"] == idx and q["result"] == val
+            q["op"] == "[]=" and q["arg1"] == "arr_0" and q["arg2"] == idx and q["result"] == val
             for q in cg.quadruples
         )
-    assert any(q["op"] == "=" and q["arg1"] == "t1" and q["result"] == "numbers" for q in cg.quadruples)
+    assert any(q["op"] == "=" and q["arg1"] == "arr_0" and q["result"] == "numbers" for q in cg.quadruples)
 
 def test_matrix_declaration_codegen():
     src = "let matrix: integer[][] = [[1, 2], [3, 4]];"
@@ -211,7 +211,7 @@ def test_matrix_declaration_codegen():
     cg = gen_code(tree)
 
     assert not errors.errors
-    assert any(q["op"] == "newarr" and q["arg1"] == "ref" and q["arg2"] == 2 and q["result"] == "t1" for q in cg.quadruples)
+    assert any(q["op"] == "newarr" and q["arg1"] == "ref" and q["arg2"] == 2 and q["result"] == "arr_0" for q in cg.quadruples)
     
     expected_inner_arrays = [
         [1, 2],
@@ -220,7 +220,7 @@ def test_matrix_declaration_codegen():
     
     for i, inner in enumerate(expected_inner_arrays):
         inner_size = len(inner)
-        inner_temp = f"t2"
+        inner_temp = f"arr_{i+1}"
         
         assert any(q["op"] == "newarr" and q["arg1"] == "ref" and q["arg2"] == inner_size and q["result"] == inner_temp for q in cg.quadruples)
         
@@ -230,9 +230,9 @@ def test_matrix_declaration_codegen():
                 for q in cg.quadruples
             )
         
-        assert any(q["op"] == "[]=" and q["arg1"] == "t1" and q["arg2"] == i and q["result"] == inner_temp for q in cg.quadruples)
+        assert any(q["op"] == "[]=" and q["arg1"] == "arr_0" and q["arg2"] == i and q["result"] == inner_temp for q in cg.quadruples)
     
-    assert any(q["op"] == "=" and q["arg1"] == "t1" and q["result"] == "matrix" for q in cg.quadruples)
+    assert any(q["op"] == "=" and q["arg1"] == "arr_0" and q["result"] == "matrix" for q in cg.quadruples)
 
 def test_array_element_assignment_codegen():
     src = """
@@ -329,7 +329,7 @@ def test_foreach_codegen():
     assert any(q["op"] == "newarr" and q["arg1"] == "ref" and q["arg2"] == 2 for q in quads)
     assert any(q["op"] == "[]=" and q["arg2"] == 0 and q["result"] == 5 for q in quads)
     assert any(q["op"] == "[]=" and q["arg2"] == 1 and q["result"] == 1 for q in quads)
-    assert any(q["op"] == "=" and q["arg1"] == "t1" and q["result"] == "arr" for q in quads)
+    assert any(q["op"] == "=" and q["arg1"] == "arr_0" and q["result"] == "arr" for q in quads)
 
     # --- Inicio del foreach ---
     assert any(q["op"] == "len" and q["arg1"] == "arr" for q in quads), "Debe calcularse la longitud del arreglo"

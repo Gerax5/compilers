@@ -10,6 +10,7 @@ from src.utils.Temp import TempManager
 from src.symbolTable.SymbolTableBuilder import SymbolTableBuilder
 from src.typeChecker.TypeChecker import TypeChecker
 from src.codeGenerator.CodeGenerator import CodeGenerator
+from src.mipsGenerator.MipsGenerator import MIPSGenerator
 
 
 def main(argv):
@@ -35,6 +36,15 @@ def main(argv):
     print("TAC generado:")
     for quad in generator.quadruples:
         print(quad)
+
+    mips_generator = MIPSGenerator(generator.quadruples, listener.globalScope.symbols)
+    mips_code = mips_generator.generate()
+    print("\nCódigo MIPS generado:")
+    print(mips_code)
+
+    output_filename = "codegen.s"
+    with open(output_filename, "w", encoding="utf-8") as f:
+        f.write(mips_code)
 
     # print("GLOBAL:", list(listener.globalScope.symbols.keys()))
     # for ctx, sc in listener.scopes.items():
