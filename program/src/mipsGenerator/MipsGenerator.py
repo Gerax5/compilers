@@ -3,6 +3,7 @@ from .strutil import StrUtil
 from .vars import VarUtil
 from src.utils.Types import Type, ArrayType
 from .arrayutil import ArrayUtil
+from .functionmanager import FunctionManager
 
 
 class MIPSGenerator:
@@ -12,14 +13,19 @@ class MIPSGenerator:
         self.variables = set()
         self.strings = {}
         self.concat_temps = {}
+        self.pending_params = []
+        self.function_quads = []
+        self.main_quads = []
         self.temp_count = 0
         self.symbol_table = symbol_table
         self.types = {}
         self.arrays = {}
         self.varutil = VarUtil()
         self.strutil = StrUtil()
+        self.funcman = FunctionManager()
         self.printer = MipsPrinter(self)
         self.arrayutil = ArrayUtil(self)
+        
 
     def _is_string_literal(self, x):
         return isinstance(x, str) and len(x) >= 2 and x[0] == '"' and x[-1] == '"'
@@ -58,12 +64,20 @@ class MIPSGenerator:
         if isinstance(a, str) and a in self.concat_temps:
             parts += self.concat_temps[a]  # expandir
         else:
-            parts.append(a)
+            if self.funcman.is_param(a):
+                param_reg = self.funcman.resolve_var(a) 
+                parts.append(param_reg)
+            else:
+                parts.append(a)
 
         if isinstance(b, str) and b in self.concat_temps:
             parts += self.concat_temps[b]
         else:
-            parts.append(b)
+            if self.funcman.is_param(b):
+                param_reg = self.funcman.resolve_var(b) 
+                parts.append(param_reg)
+            else:
+                parts.append(b)
 
         return parts
 
@@ -88,8 +102,12 @@ class MIPSGenerator:
     def _load(self, reg, val):
         if isinstance(val, int):
             return [f"\tli {reg}, {val}"]
-        else:
-            return [f"\tlw {reg}, {val}"]
+        
+        if self.funcman.is_param(val):
+            param_reg = self.funcman.resolve_var(val) 
+            return [f"\tlw {reg}, {param_reg}"]
+        
+        return [f"\tlw {reg}, {val}"]
 
     def getVariable(self, value):
         return self.strings[value]
@@ -99,7 +117,20 @@ class MIPSGenerator:
 
     def generate(self):
         # 1) Analizar qué elementos se deben declarar
+        isFunction = False
+        inFunction = None
         for q in self.quadruples:
+            if q["op"] == "label" and q["result"].startswith("func_"):
+                isFunction = True
+
+            if isFunction:
+                if q["op"] == "endfunc":
+                    inFunction = None
+                    isFunction = False
+                self.function_quads.append(q)
+            else:
+                self.main_quads.append(q)
+
             if q["op"] == "newarr":
                 size = q["arg2"]
                 arrname = q["result"]
@@ -112,6 +143,18 @@ class MIPSGenerator:
                 if val is None:
                     continue
 
+                if key == "arg1" and q["op"] == "call":
+                    continue  # función
+
+                if key == "result" and q["op"] == "endfunc":
+                    continue  # endfunc
+ 
+                if key == "result" and q["op"] == "label" and val.startswith("func_"):
+                    inFunction = val
+                    continue  # función
+                    
+                if q["op"] == "call":
+                    continue  # llamada
 
                 if self._is_string_literal(val):
                     if val not in self.strings:
@@ -120,10 +163,15 @@ class MIPSGenerator:
                     continue
 
                 elif isinstance(val, str):
-                    if not ((val in self.symbol_table) and (self.symbol_table[val].ty == Type.STRING)):
-                        self.variables.add(val)
+                    if not ((val in self.symbol_table) and (self.symbol_table[val].ty == Type.STRING)): 
+                        if inFunction:
+                            # if q["op"] == "param":
+                            #     self.variables.add(f"param_{inFunction}_{val}")
+                            # else:
+                            self.variables.add(f"{inFunction}_{val}")
+                        else:
+                            self.variables.add(val)
                 elif val in self.symbol_table and self._is_array(self.symbol_table.get(val).ty):
-                    print("array detected:", val)
                     self.variables.add(val)
         
         # 2) Sección de datos
@@ -144,11 +192,14 @@ class MIPSGenerator:
         self.output.append("\n.text")
         self.output.append("main:")
 
-        for q in self.quadruples:
+        for q in self.main_quads:
             self.translate(q)
 
         self.output.append("\n\tli $v0, 10")
         self.output.append("\tsyscall")
+
+        for q in self.function_quads:
+            self.translate(q)
 
         return "\n".join(self.output)
 
@@ -160,17 +211,17 @@ class MIPSGenerator:
 
         # Sanear nombres (solo para strings/vars, NO para enteros)
         if isinstance(res, str):
-            res = self._safe_var(res)
+            if not res.startswith("func_"):
+                res = self._safe_var(res)
         if isinstance(arg1, str) and not self._is_string_literal(arg1):
             arg1 = self._safe_var(arg1)
         if isinstance(arg2, str) and not self._is_string_literal(arg2):
             arg2 = self._safe_var(arg2)
 
+        print("TRANSLATE:", op, arg1, arg2, res)
+
         # ---------- ASIGNACIÓN ----------
-        if op == "=":
-
-
-            
+        if op == "=":            
             
             if self._is_string_literal(arg1):
                 self.concat_temps[res] = [arg1]
@@ -199,6 +250,7 @@ class MIPSGenerator:
                     f"\tlw $t0, {arg1}",
                     f"\tsw $t0, {res}",
                 ]
+
 
         # ---------- SUMA ----------
         elif op == "+":
@@ -240,6 +292,46 @@ class MIPSGenerator:
                 f"\tmflo $t2",
                 f"\tsw $t2, {res}",
             ]
+
+        elif op == "label" and res.startswith("func_"):
+            self.output += self.funcman.begin_function(res)
+            return
+
+        if op == "param":
+            self.funcman.add_param(self.funcman.current_function, res)
+            self.output += self.funcman.save_params_to_memory()
+            return
+        if op == "call_param":
+            self.pending_params.append(arg1)
+            return
+
+        if op == "return":
+            reg = self.funcman.resolve_var(arg1)
+
+            if reg.startswith("$"):
+                self.output.append(f"\tmove $v0, {reg}")
+            else:
+                self.output.append(f"\tlw $v0, {arg1}")
+
+            self.output += self.funcman.end_function()
+            return
+
+        if op == "call":
+            func_name = arg1.replace("var_", "func_")
+            n = arg2   # number of params
+
+            # load arguments into $a0..$a3
+            for i, p in enumerate(self.pending_params):
+                if isinstance(p, int):
+                    self.output.append(f"\tli $a{i}, {p}")
+                else:
+                    self.output.append(f"\tlw $a{i}, {p}")
+
+            self.pending_params = []
+
+            self.output.append(f"\tjal {func_name}")
+            self.output.append(f"\tsw $v0, {res}")
+            return
 
         elif op == "newarr":
             self.output += self.arrayutil.emit_newarr(res)

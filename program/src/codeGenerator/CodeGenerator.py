@@ -225,7 +225,7 @@ class CodeGenerator(CompiscriptVisitor):
                 arg_vals = [self.visit(e) for e in args]
 
                 for val in arg_vals:
-                    self.emit("param", val, None, None)
+                    self.emit("call_param", val, None, None)
 
                 temp = self.temp_manager.new_temp()
                 self.emit("call", cur, len(arg_vals), temp)
