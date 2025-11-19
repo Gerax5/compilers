@@ -4,6 +4,7 @@ from .vars import VarUtil
 from src.utils.Types import Type, ArrayType
 from .arrayutil import ArrayUtil
 from .functionmanager import FunctionManager
+from .classmanager import ClassManager
 
 
 class MIPSGenerator:
@@ -15,6 +16,7 @@ class MIPSGenerator:
         self.concat_temps = {}
         self.pending_params = []
         self.function_quads = []
+        self.class_quads = []
         self.main_quads = []
         self.temp_count = 0
         self.symbol_table = symbol_table
@@ -23,6 +25,7 @@ class MIPSGenerator:
         self.varutil = VarUtil()
         self.strutil = StrUtil()
         self.funcman = FunctionManager()
+        self.classman = ClassManager()
         self.printer = MipsPrinter(self)
         self.arrayutil = ArrayUtil(self)
         
@@ -88,7 +91,7 @@ class MIPSGenerator:
 
         if self._is_string_literal(x):
             return True
-
+        
         clean_x = x.replace("var_", "").replace("tmp_", "")
 
         if clean_x in self.symbol_table and self.symbol_table[clean_x].ty == Type.STRING:
@@ -116,14 +119,29 @@ class MIPSGenerator:
         return isinstance(t, ArrayType)
 
     def generate(self):
+        self.scan_classes()
         # 1) Analizar qué elementos se deben declarar
         isFunction = False
         inFunction = None
+        inClass = None
         for q in self.quadruples:
             if q["op"] == "label" and q["result"].startswith("func_"):
                 isFunction = True
 
-            if isFunction:
+            if q["op"] == "class":
+                inClass = q["result"]   # Animal
+                self.class_quads.append(q)
+                continue
+
+            if q["op"] == "endclass":
+                self.class_quads.append(q)
+                inClass = None
+                continue
+
+            if inClass:
+                self.class_quads.append(q)
+
+            elif isFunction:
                 if q["op"] == "endfunc":
                     inFunction = None
                     isFunction = False
@@ -151,6 +169,7 @@ class MIPSGenerator:
  
                 if key == "result" and q["op"] == "label" and val.startswith("func_"):
                     inFunction = val
+                    print(inFunction, "FUNCION")
                     continue  # función
                     
                 if q["op"] == "call":
@@ -163,11 +182,14 @@ class MIPSGenerator:
                     continue
 
                 elif isinstance(val, str):
-                    if not ((val in self.symbol_table) and (self.symbol_table[val].ty == Type.STRING)): 
-                        if inFunction:
-                            # if q["op"] == "param":
-                            #     self.variables.add(f"param_{inFunction}_{val}")
-                            # else:
+                    if not ((val in self.symbol_table) and (self.symbol_table[val].ty == Type.STRING)):
+                        if inClass:
+                            if inFunction:
+                                self.variables.add(f"{inClass}_{inFunction}_{val}")
+                            else:
+                                print(inClass, "CLASE")
+                                self.variables.add(f"{inClass}_{val}")
+                        elif inFunction:
                             self.variables.add(f"{inFunction}_{val}")
                         else:
                             self.variables.add(val)
@@ -201,7 +223,31 @@ class MIPSGenerator:
         for q in self.function_quads:
             self.translate(q)
 
+        for q in self.class_quads:
+            self.translate(q)
+
         return "\n".join(self.output)
+
+    def scan_classes(self):
+        inClass = None
+
+        for q in self.quadruples:
+            if q["op"] == "class":
+                inClass = q["result"]
+                self.classman.begin_class(inClass)
+                continue
+
+            if q["op"] == "endclass":
+                self.classman.end_class()
+                inClass = None
+                continue
+
+            # Registrar atributos AUTOMÁTICAMENTE
+            if inClass and q["op"] == "setprop":
+                # q = setprop this, field, value
+                if q["arg1"] == "this":
+                    field = q["arg2"]
+                    self.classman.add_field(field)
 
     def translate(self, q):
         op = q["op"]
@@ -294,18 +340,92 @@ class MIPSGenerator:
             ]
 
         elif op == "label" and res.startswith("func_"):
+            if self.classman.current_class:
+                _, class_name, method_name = res.split("_", 2)
+                self.classman.add_method(method_name)
+                self.output += self.funcman.begin_function(res)
+                return
+            
             self.output += self.funcman.begin_function(res)
             return
+        
+        if op == "setprop":
+            inst = arg1           # this
+            field = arg2
+            value = res
+
+            class_name = self.classman.current_class
+            storage = self.classman.resolve_field(class_name, field)
+
+            self.output += [
+                f"\tlw $t0, {value}",
+                f"\tsw $t0, {storage}"
+            ]
+            return
+
+        if op == "getprop":
+            inst = arg1
+            field = arg2
+            dest = res
+
+            class_name = self.classman.current_class
+            storage = self.classman.resolve_field(class_name, field)
+
+            self.output += [
+                f"\tlw $t0, {storage}",
+                f"\tsw $t0, {dest}"
+            ]
+            return
+
+        if op == "new":
+            class_name = arg1
+            obj = res
+
+            print("NEW OBJECT OF CLASS:", class_name)
+            size =  0 # self.classman.class_sizes[class_name]   # por ejemplo {"Animal": 4}
+            
+            self.output += [
+                "\tli $v0, 9",             # sbrk
+                f"\tli $a0, {size}",       # bytes
+                "\tsyscall",               # $v0 = ptr
+                f"\tsw $v0, {obj}",        # guardar el puntero en t1
+            ]
+
+            # llamar constructor si existe
+            ctor = f"func_{class_name}_constructor"
+
+            self.output += [
+                f"\tlw $a0, {obj}",        # this
+                f"\tjal {ctor}"            # constructor()
+            ]
+            return
+
+
 
         if op == "param":
             self.funcman.add_param(self.funcman.current_function, res)
             self.output += self.funcman.save_params_to_memory()
             return
+        
         if op == "call_param":
             self.pending_params.append(arg1)
             return
 
         if op == "return":
+            
+            if self._is_string_literal(arg1):
+                label = self.strings[arg1]   # ejemplo: "HOLA" → str0
+                self.output.append(f"\tla $v0, {label}")
+                self.output += self.funcman.end_function()
+                return
+            
+            if self.is_string(arg1):
+                # Debes asegurar que 'arg1' tiene un label generado por concat
+                label = self.strutil.concat_to_mips(self, arg1)
+                self.output.append(f"\tla $v0, {label}")
+                self.output += self.funcman.end_function()
+                return
+            
             reg = self.funcman.resolve_var(arg1)
 
             if reg.startswith("$"):
@@ -320,6 +440,13 @@ class MIPSGenerator:
             func_name = arg1.replace("var_", "func_")
             n = arg2   # number of params
 
+            raw = func_name.replace("func_", "")
+
+
+            if raw in self.symbol_table:
+                if self.symbol_table[raw].ty == Type.STRING:
+                    self.types[res] = "string"
+
             # load arguments into $a0..$a3
             for i, p in enumerate(self.pending_params):
                 if isinstance(p, int):
@@ -331,6 +458,14 @@ class MIPSGenerator:
 
             self.output.append(f"\tjal {func_name}")
             self.output.append(f"\tsw $v0, {res}")
+            return
+        
+        if op == "class":
+            self.classman.begin_class(res)
+            return
+
+        if op == "endclass":
+            self.classman.end_class()
             return
 
         elif op == "newarr":

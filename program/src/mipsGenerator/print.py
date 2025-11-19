@@ -3,6 +3,7 @@ class MipsPrinter:
         self.gen = gen      # referencia a MIPSGenerator
 
     def emit(self, arg):
+
         # A) concatenación
         if isinstance(arg, str) and arg in self.gen.concat_temps:
             return self._emit_concat(arg)
@@ -10,6 +11,9 @@ class MipsPrinter:
         # B) string literal
         if self.gen.strutil.is_literal(arg):
             return self._emit_literal(arg)
+
+        
+            return self._emit_variable(arg)
 
         # C) variable
         if isinstance(arg, str):
@@ -32,6 +36,15 @@ class MipsPrinter:
         ]
 
     def _emit_variable(self, name):
+        if name in self.gen.types and self.gen.types[name] == "string":
+            safe = self.gen.varutil.safe(name)
+            self.gen.output += [
+                f"\tlw $a0, {safe}",  
+                "\tli $v0, 4",       
+                "\tsyscall",
+            ]
+            return
+        
         safe = self.gen.varutil.safe(name)
         self.gen.output += [
             f"\tlw $a0, {safe}",

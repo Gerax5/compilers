@@ -8,13 +8,13 @@ class FunctionManager:
     # ------------------------------------
     #  BEGIN FUNCTION
     # ------------------------------------
-    def begin_function(self, name):
+    def begin_function(self, name, classname = ""):
         self.current_function = name
         self.params[name] = []
         self.localVarName[name] = {}
         self.locals[name] = set()
         return [
-            f"{name}:",
+            f"{classname}{name}:",
             "\taddiu $sp, $sp, -8",
             "\tsw $ra, 4($sp)",
             "\tsw $fp, 0($sp)",
