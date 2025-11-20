@@ -274,16 +274,26 @@ class MIPSGenerator:
             arg2 = self._safe_var(arg2)
 
         # ---------- ASIGNACIÓN ----------
-        if op == "=":            
+        if op == "=":     
+
+            print("HOLA", arg1, arg2, res, self.symbol_table)      
             
             if self._is_string_literal(arg1):
                 self.concat_temps[res] = [arg1]
                 return
 
+
             if self.is_string(arg1):
-                self.types[res] = "string"
-                self.concat_temps[res] = list(self.concat_temps[arg1])
-                return
+                cont = True
+                raw = res.replace("var_", "").replace("tmp_", "")
+                if raw in self.symbol_table:
+                    if self.symbol_table[raw].ty == Type.INT:
+                        self.types[arg1] = "int"
+                        cont = False
+                if cont:
+                    self.types[res] = "string"
+                    self.concat_temps[res] = list(self.concat_temps[arg1])
+                    return
 
             clean_res = res.replace("var_", "").replace("tmp_", "")
             if clean_res in self.symbol_table and "[]" in str(self.symbol_table[clean_res].ty):
@@ -307,13 +317,11 @@ class MIPSGenerator:
 
         # ---------- SUMA ----------
         elif op == "+":
-            print(arg1, arg2, "SUMA TIPO")
             if self.is_string(arg1) or self.is_string(arg2):
-                print("STRING CONCAT DETECTED", arg1, arg2)
                 self.types[res] = "string"
                 self.concat_temps[res] = self._concat(arg1, arg2)
             else:
-                print("STRING CONCAT DETECTED 2", arg1, arg2)
+                self.types[res] = "int"
                 self.output += self._load("$t0", arg1)
                 self.output += self._load("$t1", arg2)
                 self.output += [
@@ -422,6 +430,13 @@ class MIPSGenerator:
             raw = res.replace("var_", "").replace("tmp_", "")
             self.output.append(f"\tbeq $t0, $zero, {raw}")
             return
+
+        elif op == "ifTrue":
+            self.output += self._load("$t0", arg1)
+            raw = res.replace("var_", "").replace("tmp_", "")
+            self.output.append(f"\tbne $t0, $zero, {raw}")
+            return
+
 
         elif op == "goto":
             raw = res.replace("var_", "").replace("tmp_", "")

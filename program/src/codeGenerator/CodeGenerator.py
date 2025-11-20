@@ -413,10 +413,10 @@ class CodeGenerator(CompiscriptVisitor):
 
     # FOR
     def visitForStatement(self, ctx):
-        Ltest = self.new_label("Lfor_test_")
-        Lbody = self.new_label("Lfor_body_")
-        Lincr = self.new_label("Lfor_incr_")
-        Lend  = self.new_label("Lfor_end_")
+        Ltest = self.new_label(f"L{len(self.quadruples)}for_test_")
+        Lbody = self.new_label(f"L{len(self.quadruples)}for_body_")
+        Lincr = self.new_label(f"L{len(self.quadruples)}for_incr_")
+        Lend  = self.new_label(f"L{len(self.quadruples)}for_end_")
 
         self.loop_stack.append((Ltest, Lend))
 
@@ -757,9 +757,9 @@ class CodeGenerator(CompiscriptVisitor):
 
     # While
     def visitWhileStatement(self, ctx):
-        Ltest = self.new_label("Lwhile_test_")
-        Lbody = self.new_label("Lwhile_body_")
-        Lend  = self.new_label("Lwhile_end_")
+        Ltest = self.new_label(f"L{len(self.quadruples)}while_test_")
+        Lbody = self.new_label(f"L{len(self.quadruples)}while_body_")
+        Lend  = self.new_label(f"L{len(self.quadruples)}while_end_")
 
         self.loop_stack.append((Ltest, Lend))
 
@@ -782,9 +782,9 @@ class CodeGenerator(CompiscriptVisitor):
 
     # Do while
     def visitDoWhileStatement(self, ctx):
-        Lbody = self.new_label("Ldowhile_body_")
-        Lcond = self.new_label("Ldowhile_cond_")
-        Lend  = self.new_label("Ldowhile_end_")
+        Lbody = self.new_label(f"L{len(self.quadruples)}dowhile_body_")
+        Lcond = self.new_label(f"L{len(self.quadruples)}dowhile_cond_")
+        Lend  = self.new_label(f"L{len(self.quadruples)}dowhile_end_")
 
         self.loop_stack.append((Lcond, Lend))
 
