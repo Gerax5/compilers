@@ -9,17 +9,18 @@ from antlr4.tree.Tree import TerminalNode # type: ignore
 from CompiscriptVisitor import CompiscriptVisitor
 
 class CodeGenerator(CompiscriptVisitor):
-    def __init__(self, temp_manager):
+    def __init__(self, temp_manager, symbol_table):
         self.temp_manager = temp_manager
         self.quadruples = []
         self.counter = 0
         self.arr_id = 0
+        self.symbol_table = symbol_table
 
         self.label_counter = 0
         self.loop_stack = []
         self.switch_stack = []
 
-    def emit(self, op, arg1, arg2, result):
+    def emit(self, op, arg1, arg2, result,  **extra):
         quad = {
             "id": self.counter,
             "op": op,
@@ -27,6 +28,8 @@ class CodeGenerator(CompiscriptVisitor):
             "arg2": arg2,
             "result": result
         }
+        quad.update(extra)
+
         self.quadruples.append(quad)
         self.counter += 1
         return quad["id"]
@@ -253,7 +256,36 @@ class CodeGenerator(CompiscriptVisitor):
 
             # --- acceso a propiedad ---
             if kind == '.':
+                # prop = suf.Identifier().getText()
+
+                # # --- 1. Determinar el tipo de la instancia ---
+                # inst_name = cur
+                # class_type = self._resolve_instance_class(inst_name)
+                # if self._is_method(class_type, prop):
+                #     # generar TAC especial para métodos
+                #     temp = self.temp_manager.new_temp()
+                #     self.emit("getmethod", inst_name, prop, temp)
+                #     cur = temp
+                #     continue
+                
                 prop = suf.Identifier().getText()
+
+                inst_name = cur
+
+
+                if inst_name in self.symbol_table:
+                    type = self.symbol_table[inst_name].ty
+                    if isinstance(type, ClassSymbol):
+                        type = "class"
+
+                    if type == "class":
+                        temp = self.temp_manager.new_temp()
+                        retType = self.symbol_table[inst_name].ty.resolve_member(prop).ty
+                        self.emit("getmethod", inst_name, prop, temp, retType=retType)
+                        cur = temp
+                        continue
+
+
                 temp = self.temp_manager.new_temp()
                 self.emit("getprop", cur, prop, temp)
 
@@ -300,7 +332,7 @@ class CodeGenerator(CompiscriptVisitor):
 
         for arg in args:
             arg_val = self.visit(arg)
-            self.emit("param", arg_val, None, None)
+            self.emit("call_param", arg_val, None, None)
 
         temp = self.temp_manager.new_temp()
         self.emit("new", cname, len(args), temp)

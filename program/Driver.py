@@ -30,7 +30,7 @@ def main(argv):
     checker.visit(tree)
 
     temp_manager = TempManager()
-    generator = CodeGenerator(temp_manager)
+    generator = CodeGenerator(temp_manager, listener.globalScope.symbols)
     generator.visit(tree)
 
     print("TAC generado:")

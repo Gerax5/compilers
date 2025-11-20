@@ -1,5 +1,18 @@
-function makeAdder(): string {
-  return "HOLA";
+function makeAdder(x: integer): integer {
+  return x + 1;
 }
 
-print(makeAdder());
+let addFive: integer = (makeAdder(1));
+
+if (addFive > 5) {
+  print("Greater than 5");
+} else {
+  print("5 or less");
+}
+
+
+while (addFive < 10) {
+  addFive = addFive + 1;
+}
+
+print("\n"+addFive);

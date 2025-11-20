@@ -67,7 +67,7 @@ class FunctionManager:
 
         if func and name in self.localVarName[func]:
             return self.localVarName[func][name]
-
+        
         return name  # normal variable (en .data)
 
     def is_param(self, name):
