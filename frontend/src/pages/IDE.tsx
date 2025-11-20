@@ -3,7 +3,7 @@ import { Toolbar } from "../components/Toolbar";
 import { EditorPanel } from "../components/EditorPanel";
 import { ResultTabs } from "../components/ResultTabs";
 import { analyze } from "../services/api";
-import type { AnalyzeError, ScopeNode } from "../types/analysis";
+import type { AnalyzeError, ScopeNode, Quad } from "../types/analysis";
 
 const SAMPLE = `// Escribe tu script aquí
 class A {}
@@ -17,6 +17,7 @@ export default function IDE() {
   const [globals, setGlobals] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [symtab, setSymtab] = useState<ScopeNode | undefined>(undefined);
+  const [tac, setTac] = useState<Quad[] | undefined>(undefined);
 
   async function onAnalyze() {
     setLoading(true);
@@ -24,6 +25,7 @@ export default function IDE() {
       const res = await analyze(code);
       setErrors(res.errors || []);
       setGlobals(res.globals || []);
+      setTac(res.tac || []);
       setSymtab(res.symtab);
     } catch (e) {
       setErrors([{ line: null, col: null, msg: String(e), severity: "error" }]);
@@ -55,7 +57,12 @@ export default function IDE() {
         <EditorPanel value={code} onChange={setCode} />
       </div>
       <div>
-        <ResultTabs errors={errors} globals={globals} symtab={symtab} />
+        <ResultTabs
+          errors={errors}
+          globals={globals}
+          symtab={symtab}
+          tac={tac}
+        />
       </div>
     </div>
   );

@@ -1,17 +1,26 @@
 import React, { useState } from "react";
-import type { AnalyzeError, ScopeNode } from "../types/analysis";
+import type { AnalyzeError, ScopeNode, Quad } from "../types/analysis";
 import { ErrorList } from "./ErrorList";
 import { Button } from "./Button";
-import SymtabPane from "./SymtabPane";
+import { SymtabPane } from "./SymtabPane";
+import TacTable from "./TacTable";
 
 type Props = {
   errors: AnalyzeError[];
   globals: string[];
   symtab?: ScopeNode;
+  tac?: Quad[];
 };
 
-export const ResultTabs: React.FC<Props> = ({ errors, globals, symtab }) => {
-  const [tab, setTab] = useState<"errors" | "globals" | "tabla">("errors");
+export const ResultTabs: React.FC<Props> = ({
+  errors,
+  globals,
+  symtab,
+  tac,
+}) => {
+  const [tab, setTab] = useState<"errors" | "globals" | "tabla" | "tac">(
+    "errors"
+  );
 
   return (
     <div
@@ -40,6 +49,11 @@ export const ResultTabs: React.FC<Props> = ({ errors, globals, symtab }) => {
           onClick={() => setTab("tabla")}
           variant="ghost"
         />
+        <Button
+          label={`TAC ${tac?.length ?? 0}`}
+          variant="ghost"
+          onClick={() => setTab("tac")}
+        />
       </div>
       <div style={{ overflow: "auto", padding: 8 }}>
         {tab === "errors" && <ErrorList errors={errors} />}
@@ -49,6 +63,7 @@ export const ResultTabs: React.FC<Props> = ({ errors, globals, symtab }) => {
           </pre>
         )}
         {tab === "tabla" && <SymtabPane root={symtab} />}
+        {tab === "tac" && <TacTable data={tac} />}
       </div>
     </div>
   );

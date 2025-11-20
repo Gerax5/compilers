@@ -4,6 +4,7 @@ class MipsPrinter:
         self.gen = gen      # referencia a MIPSGenerator
 
     def emit(self, arg):
+        print(arg, "EMIT ARG")
 
         if isinstance(arg, tuple) and arg[0] == "runtime":
             return self._emit_runtime_string(arg[1])

@@ -125,3 +125,50 @@ Errors: report with errors.err_ctx(ctx, msg) including precise source location.
 - continue is only valid inside a loop. It targets the innermost enclosing loop.
 - break is valid inside a loop or a switch. In a loop it exits the innermost loop; inside a switch it exits the entire switch statement.
 - Depth tracking: Increment loop_depth on entry to any loop and decrement on exit. Use it to validate continue and to help decide whether break is legal (see switch below).
+- Switch: the switch (expr) head is visited first to obtain its type T. Each case E: expression must be compatible with T. If T is bool, cases must be boolean; otherwise a type-mismatch is reported. Increment switch_depth on entry and decrement on exit; used together with loop_depth to validate break. Statements inside each case and default are visited in order.
+- Foreach: The collection expression must be an ArrayType; otherwise an error is reported. The loop variable gets the element type (for multidimensional arrays, the element is the array with one less dimensions). Increments loop_depth while visiting the body.
+- Break / Continue (validation): Continue only legal inside a loop; otherwise an error. Break legal inside a loop or inside a switch; outside both is an error.
+- Try / catch: Visits the try { ... } block first and then the catch (...) { ... } block if present, so inner expressions/statements are type-checked as usual.
+
+  **Relational, Equality & Logical**
+
+- Relational (<, >, <=, >=): boh sides most be numeric (int / float); result is bool.
+- Equality (==, !=): Allowed if operands are assignable in any direction (includes numeric promotions, class-subclass, etc); result is bool.
+- Logical (&&, ||): Both sides must be bool; result is bool.
+
+  **Chained Acces (calls, indexing, properties)**
+
+- Calls: If the reciever is a FuncSymbol, check arity and parameter types; expression type becomes the function's return type. If the receiver is a class, resolve and validate the constructure signature; expression type remains the class. Any other reciever is not invocable -> error.
+- Indexing: index must be int and receiver must be an array; the resulting type is the element type.
+- Property acces: Only valid on class instances; member is looked up. If the member is a function, the node carries a FuncSymbol so a subsequent call can be type-checked; if it's a field, the type is that field's type.
+
+  **Assignments (LHS with suffixes)**
+
+- Property assignemmt (obj.prop = expr): Checks that prop exists and the RHS is assignable to its type.
+- Indexed assignment (arr[i] = expr): Checks arr is array, i:int, and RHS compatible with the element type.
+- Call as LHS: Invalid (cannot assign to the result of a call).
+
+  **Constructurs (new)**
+
+- Class resolution: If the identifier after new must resolve to a class type.
+- Signature check: If a constructur exists, arity and each argument type must match its parameter type; otherwise an error is reported (including the case of passing args when no constructur exists).
+- Result: The expression type is the class itself.
+
+  **Conditional (?:)**
+
+- Condition: Must be bool.
+- Type resolution:
+
+  - If both branches have the same type → that type.
+  - For arrays: require same dimensions and unify numeric base types if possible.
+  - For numeric primitives: int/float unify to float.
+  - Otherwise → incompatible, result null with a diagnostic.
+
+  **Array Literals**
+
+- Empty arrays: type cannot be inferred; require an explicit annotation (e.g., int[]).
+- Homogeneity:
+  - Mixing scalar and subarray → error.
+  - All subarrays must have the same dimensions.
+  - Base types are unified (e.g., int + float → float); otherwise error.
+- Resulting type: ArrayType(base, dims) inferred from elements.

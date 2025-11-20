@@ -10,9 +10,11 @@ if (addFive > 5) {
   print("5 or less");
 }
 
-
 while (addFive < 10) {
   addFive = addFive + 1;
 }
 
-print("\n"+addFive);
+do {
+  print("Result is now "+addFive);
+  addFive = addFive - 1;
+} while (addFive > 7);

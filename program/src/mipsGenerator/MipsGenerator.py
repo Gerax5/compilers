@@ -307,10 +307,13 @@ class MIPSGenerator:
 
         # ---------- SUMA ----------
         elif op == "+":
+            print(arg1, arg2, "SUMA TIPO")
             if self.is_string(arg1) or self.is_string(arg2):
+                print("STRING CONCAT DETECTED", arg1, arg2)
                 self.types[res] = "string"
                 self.concat_temps[res] = self._concat(arg1, arg2)
             else:
+                print("STRING CONCAT DETECTED 2", arg1, arg2)
                 self.output += self._load("$t0", arg1)
                 self.output += self._load("$t1", arg2)
                 self.output += [
