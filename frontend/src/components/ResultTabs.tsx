@@ -4,12 +4,14 @@ import { ErrorList } from "./ErrorList";
 import { Button } from "./Button";
 import { SymtabPane } from "./SymtabPane";
 import TacTable from "./TacTable";
+import MipsViewer from "./MipsViewer";
 
 type Props = {
   errors: AnalyzeError[];
   globals: string[];
   symtab?: ScopeNode;
   tac?: Quad[];
+  mips?: string;
 };
 
 export const ResultTabs: React.FC<Props> = ({
@@ -17,8 +19,9 @@ export const ResultTabs: React.FC<Props> = ({
   globals,
   symtab,
   tac,
+  mips,
 }) => {
-  const [tab, setTab] = useState<"errors" | "globals" | "tabla" | "tac">(
+  const [tab, setTab] = useState<"errors" | "globals" | "tabla" | "tac" | "mips">(
     "errors"
   );
 
@@ -54,6 +57,11 @@ export const ResultTabs: React.FC<Props> = ({
           variant="ghost"
           onClick={() => setTab("tac")}
         />
+        <Button
+          label={`MIPS`}
+          variant="ghost"
+          onClick={() => setTab("mips")}
+        />
       </div>
       <div style={{ overflow: "auto", padding: 8 }}>
         {tab === "errors" && <ErrorList errors={errors} />}
@@ -64,6 +72,7 @@ export const ResultTabs: React.FC<Props> = ({
         )}
         {tab === "tabla" && <SymtabPane root={symtab} />}
         {tab === "tac" && <TacTable data={tac} />}
+        {tab === "mips" && <MipsViewer mips={mips}/>}
       </div>
     </div>
   );
