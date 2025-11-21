@@ -4,7 +4,7 @@ from src.utils.Scope import VarSymbol, Type, ClassSymbol, FuncSymbol, Scope
 from src.utils.Types import Type, ArrayType
 from CompiscriptListener import CompiscriptListener
 from CompiscriptParser import CompiscriptParser
-from antlr4.tree.Tree import TerminalNode # type: ignore
+from antlr4.tree.Tree import TerminalNode  # type: ignore
 
 
 class TypeChecker(CompiscriptVisitor):
@@ -35,13 +35,18 @@ class TypeChecker(CompiscriptVisitor):
         return False
 
     def _can_assign(self, dst, src):
-        if dst == src: return True
-        if dst == Type.FLOAT and src == Type.INT: return True
-        if dst == Type.NULL: return True
+        if dst == src:
+            return True
+        if dst == Type.FLOAT and src == Type.INT:
+            return True
+        if dst == Type.NULL:
+            return True
         if isinstance(dst, ArrayType) and isinstance(src, ArrayType):
             if dst.dimensions != src.dimensions:
                 return False
-            if src.base == Type.NULL:  # arreglo vacío puede asignarse a cualquier tipo de arreglo
+            if (
+                src.base == Type.NULL
+            ):  # arreglo vacío puede asignarse a cualquier tipo de arreglo
                 return True
             if dst.base == src.base:
                 return True
@@ -73,17 +78,17 @@ class TypeChecker(CompiscriptVisitor):
             sc = getattr(c, "scope", None)
             if sc:
                 sym = sc.resolve(name)
-                if sym: return sym
+                if sym:
+                    return sym
             c = getattr(c, "superclass", None)
         return None
 
-    
     def _apply_assignment(self, name, rhs_ty, ctx):
         sym: VarSymbol = self.current.resolve(name)
         if not sym:
             self.errors.err_ctx(ctx, f"'{name}' no declarado")
             return self._set(ctx, rhs_ty)
-        if sym.kind == 'const':
+        if sym.kind == "const":
             self.errors.err_ctx(ctx, f"No se puede asignar a const '{name}'")
             return self._set(ctx, sym.ty)
         if not self._can_assign(sym.ty, rhs_ty):
@@ -92,7 +97,9 @@ class TypeChecker(CompiscriptVisitor):
 
     def _apply_property_assignment(self, recv_ty, prop, rhs_ty, ctx):
         if not (getattr(recv_ty, "kind", "") == "class"):
-            self.errors.err_ctx(ctx, f"No se puede asignar propiedad '{prop}' sobre tipo {recv_ty}")
+            self.errors.err_ctx(
+                ctx, f"No se puede asignar propiedad '{prop}' sobre tipo {recv_ty}"
+            )
             return self._set(ctx, rhs_ty)
         psym = self._class_member(recv_ty, prop)
         if not psym:
@@ -102,28 +109,35 @@ class TypeChecker(CompiscriptVisitor):
             self.errors.err_ctx(ctx, f"La propiedad '{prop}' es const")
             return self._set(ctx, psym.ty)
         if not self._can_assign(psym.ty, rhs_ty):
-            self.errors.err_ctx(ctx, f"Asignación incompatible a '{prop}': {psym.ty} = {rhs_ty}")
+            self.errors.err_ctx(
+                ctx, f"Asignación incompatible a '{prop}': {psym.ty} = {rhs_ty}"
+            )
         return self._set(ctx, psym.ty)
-
 
     def _apply_index_assignment(self, arr_ty, idx_ty, rhs_ty, ctx):
         from src.utils.Types import ArrayType, Type
+
         if not isinstance(arr_ty, ArrayType):
             self.errors.err_ctx(ctx, "Indexación sobre no-arreglo")
             return self._set(ctx, rhs_ty)
         if idx_ty != Type.INT:
             self.errors.err_ctx(ctx, "Índice de arreglo debe ser integer")
         # tipo del elemento
-        elem_ty = (ArrayType(arr_ty.base, arr_ty.dimensions-1)
-                if arr_ty.dimensions > 1 else arr_ty.base)
+        elem_ty = (
+            ArrayType(arr_ty.base, arr_ty.dimensions - 1)
+            if arr_ty.dimensions > 1
+            else arr_ty.base
+        )
         if not self._can_assign(elem_ty, rhs_ty):
-            self.errors.err_ctx(ctx, f"Asignación incompatible en arreglo: {elem_ty} = {rhs_ty}")
+            self.errors.err_ctx(
+                ctx, f"Asignación incompatible en arreglo: {elem_ty} = {rhs_ty}"
+            )
 
         return self._set(ctx, elem_ty)
 
     def _const_int(self, expr_ctx):
-        txt = expr_ctx.getText().replace('_','')
-        if txt.startswith('-'):
+        txt = expr_ctx.getText().replace("_", "")
+        if txt.startswith("-"):
             return int(txt[1:]) * -1 if txt[1:].isdigit() else None
         return int(txt) if txt.isdigit() else None
 
@@ -137,7 +151,7 @@ class TypeChecker(CompiscriptVisitor):
             return sym.ty, name, sym
         ty = self.visit(base)
         return ty, None, None
-    
+
     def _compatible_for_switch(self, cond_ty, case_ty):
         if cond_ty == Type.BOOL:
             return case_ty == Type.BOOL
@@ -154,20 +168,29 @@ class TypeChecker(CompiscriptVisitor):
         # Para que el override funcione tiene que ser exactamente igual
         # Preferencia del programador (segun carlos)
         if len(sub_sym.params) != len(super_sym.params):
-            self.errors.err_ctx(ctx, f"Override inválido de '{sub_sym.name}': número de parámetros distinto")
+            self.errors.err_ctx(
+                ctx,
+                f"Override inválido de '{sub_sym.name}': número de parámetros distinto",
+            )
             return
 
-        for (sp, pp) in zip(sub_sym.params, super_sym.params):
+        for sp, pp in zip(sub_sym.params, super_sym.params):
             if sp.ty != pp.ty:
-                self.errors.err_ctx(ctx, f"Override inválido de '{sub_sym.name}': tipo de parámetro {sp.ty} no coincide con {pp.ty}")
+                self.errors.err_ctx(
+                    ctx,
+                    f"Override inválido de '{sub_sym.name}': tipo de parámetro {sp.ty} no coincide con {pp.ty}",
+                )
 
         if sub_sym.ty != super_sym.ty:
-            self.errors.err_ctx(ctx, f"Override inválido de '{sub_sym.name}': tipo de retorno {sub_sym.ty} no coincide con {super_sym.ty}")
+            self.errors.err_ctx(
+                ctx,
+                f"Override inválido de '{sub_sym.name}': tipo de retorno {sub_sym.ty} no coincide con {super_sym.ty}",
+            )
 
     # INITIAL
     def visitProgram(self, ctx):
         return self.visitChildren(ctx)
-    
+
     def visitBlock(self, ctx):
         prev = self.current
         self.current = self.scopes.get(ctx, self.current)
@@ -176,7 +199,9 @@ class TypeChecker(CompiscriptVisitor):
         for stmt in ctx.statement() or []:
             if found_return:
                 # Ya hubo un return antes, todo lo que sigue es dead code
-                self.errors.err_ctx(stmt, "Se detectó código inalcanzable (código muerto)")
+                self.errors.err_ctx(
+                    stmt, "Se detectó código inalcanzable (código muerto)"
+                )
                 continue
 
             self.visit(stmt)
@@ -188,10 +213,9 @@ class TypeChecker(CompiscriptVisitor):
         self.current = prev
         return None
 
-
     def visitStatement(self, ctx):
         return self.visitChildren(ctx)
-    
+
     # IDENTIFICADOR DE TIPOS
     def visitIdentifierExpr(self, ctx):
         name = ctx.Identifier().getText()
@@ -199,9 +223,9 @@ class TypeChecker(CompiscriptVisitor):
         if not sym:
             self.errors.err_ctx(ctx, f"'{name}' no declarado")
             return self._set(ctx, Type.NULL)
-        
+
         if sym.kind == "func":
-            return self._set(ctx, sym) 
+            return self._set(ctx, sym)
 
         if getattr(sym, "kind", "") == "class":
             return self._set(ctx, sym)
@@ -214,14 +238,18 @@ class TypeChecker(CompiscriptVisitor):
             return self.visit(tok)
 
         tok = tok.getText()
-        if tok in ('true','false'): return self._set(ctx, Type.BOOL)
-        if tok.startswith('"') or tok.startswith("'"): return self._set(ctx, Type.STRING)
-        if tok.replace('_','').isdigit(): return self._set(ctx, Type.INT)
+        if tok in ("true", "false"):
+            return self._set(ctx, Type.BOOL)
+        if tok.startswith('"') or tok.startswith("'"):
+            return self._set(ctx, Type.STRING)
+        if tok.replace("_", "").isdigit():
+            return self._set(ctx, Type.INT)
         try:
-            float(tok); return self._set(ctx, Type.FLOAT)
+            float(tok)
+            return self._set(ctx, Type.FLOAT)
         except ValueError:
             return self._set(ctx, Type.NULL)
-        
+
     def visitArrayLiteral(self, ctx):
         elem_nodes = ctx.expression() or []
         elem_types = [self.visit(e) for e in elem_nodes]
@@ -234,19 +262,25 @@ class TypeChecker(CompiscriptVisitor):
 
         if any_arr:
             if not all(self._is_array(t) for t in elem_types):
-                self.errors.err_ctx(ctx, "Arreglo irregular: mezcla de elemento escalar y subarreglo.")
+                self.errors.err_ctx(
+                    ctx, "Arreglo irregular: mezcla de elemento escalar y subarreglo."
+                )
                 return self._set(ctx, ArrayType(Type.NULL, 1))
 
             inner_dims = elem_types[0].dimensions
             if any(t.dimensions != inner_dims for t in elem_types):
-                self.errors.err_ctx(ctx, "Arreglo irregular: dimensiones distintas entre elementos.")
+                self.errors.err_ctx(
+                    ctx, "Arreglo irregular: dimensiones distintas entre elementos."
+                )
                 return self._set(ctx, ArrayType(Type.NULL, inner_dims + 1))
 
             base = elem_types[0].base
             for t in elem_types[1:]:
                 ub = self._unify_base(base, t.base)
                 if ub is None:
-                    self.errors.err_ctx(ctx, f"Tipos incompatibles en arreglo: {base} y {t.base}")
+                    self.errors.err_ctx(
+                        ctx, f"Tipos incompatibles en arreglo: {base} y {t.base}"
+                    )
                     return self._set(ctx, ArrayType(Type.NULL, inner_dims + 1))
                 base = ub
 
@@ -257,17 +291,17 @@ class TypeChecker(CompiscriptVisitor):
             for t in elem_types[1:]:
                 ub = self._unify_base(base, t)
                 if ub is None:
-                    self.errors.err_ctx(ctx, f"Tipos incompatibles en arreglo: {base} y {t}")
+                    self.errors.err_ctx(
+                        ctx, f"Tipos incompatibles en arreglo: {base} y {t}"
+                    )
                     return self._set(ctx, ArrayType(Type.NULL, 1))
                 base = ub
             return self._set(ctx, ArrayType(base, 1))
 
-
-    
     # VISIT de variables
     def visitConstantDeclaration(self, ctx):
         name = ctx.Identifier().getText()
-        ann  = ctx.typeAnnotation()
+        ann = ctx.typeAnnotation()
         declared_ty = self._type_of(ann.type_()) if ann else Type.NULL
 
         sym = self.current.resolve(name)
@@ -282,17 +316,25 @@ class TypeChecker(CompiscriptVisitor):
 
         init_ty = self.visit(init)
 
-        if declared_ty == Type.NULL and isinstance(init_ty, ArrayType) and init_ty.base == Type.NULL:
-            self.errors.err_ctx(ctx, f"Const '{name}': no se puede inferir el tipo a partir de un arreglo vacío, por favor agrega una anotación de tipo")
+        if (
+            declared_ty == Type.NULL
+            and isinstance(init_ty, ArrayType)
+            and init_ty.base == Type.NULL
+        ):
+            self.errors.err_ctx(
+                ctx,
+                f"Const '{name}': no se puede inferir el tipo a partir de un arreglo vacío, por favor agrega una anotación de tipo",
+            )
             return None
 
         if declared_ty == Type.NULL:
             sym.ty = init_ty
         elif not self._can_assign(declared_ty, init_ty):
-            self.errors.err_ctx(ctx, f"Const '{name}': expected {declared_ty}, got {init_ty}")
+            self.errors.err_ctx(
+                ctx, f"Const '{name}': expected {declared_ty}, got {init_ty}"
+            )
 
         return None
-
 
     def visitAssignment(self, ctx):
         left = ctx.Identifier().getText()
@@ -304,7 +346,7 @@ class TypeChecker(CompiscriptVisitor):
 
         elif len(exps) == 2:
             recv_ty = self.visit(exps[0])
-            rhs_ty  = self.visit(exps[1])
+            rhs_ty = self.visit(exps[1])
             return self._apply_property_assignment(recv_ty, left, rhs_ty, ctx)
 
         return self.visitChildren(ctx)
@@ -324,8 +366,8 @@ class TypeChecker(CompiscriptVisitor):
 
         recv_ty = base_ty
         for s in suffixes[:-1]:
-            kind = s.getChild(0).getText()  
-            if kind == '[':
+            kind = s.getChild(0).getText()
+            if kind == "[":
                 idx_ty = self.visit(s.expression())
                 if idx_ty != Type.INT:
                     self.errors.err_ctx(s, "Índice de arreglo debe ser integer")
@@ -333,13 +375,23 @@ class TypeChecker(CompiscriptVisitor):
                     self.errors.err_ctx(s, "Indexación sobre no-arreglo")
                     recv_ty = Type.NULL
                 else:
-                    recv_ty = (ArrayType(recv_ty.base, recv_ty.dimensions - 1)
-                            if recv_ty.dimensions > 1 else recv_ty.base)
+                    recv_ty = (
+                        ArrayType(recv_ty.base, recv_ty.dimensions - 1)
+                        if recv_ty.dimensions > 1
+                        else recv_ty.base
+                    )
 
-            elif kind == '.':
+            elif kind == ".":
                 prop = s.Identifier().getText()
-                if not (hasattr(recv_ty, "kind") and recv_ty.kind == "class" and getattr(recv_ty, "scope", None)):
-                    self.errors.err_ctx(s, f"No se puede acceder propiedad '{prop}' sobre tipo {recv_ty}")
+                if not (
+                    hasattr(recv_ty, "kind")
+                    and recv_ty.kind == "class"
+                    and getattr(recv_ty, "scope", None)
+                ):
+                    self.errors.err_ctx(
+                        s,
+                        f"No se puede acceder propiedad '{prop}' sobre tipo {recv_ty}",
+                    )
                     recv_ty = Type.NULL
                 else:
                     psym = recv_ty.scope.resolve(prop)
@@ -349,30 +401,34 @@ class TypeChecker(CompiscriptVisitor):
                     else:
                         recv_ty = psym.ty
 
-            else:  
-                self.errors.err_ctx(s, "Una llamada no puede usarse como lado izquierdo de una asignación")
+            else:
+                self.errors.err_ctx(
+                    s,
+                    "Una llamada no puede usarse como lado izquierdo de una asignación",
+                )
                 recv_ty = Type.NULL
 
         last = suffixes[-1]
         last_kind = last.getChild(0).getText()
 
-        if last_kind == '[':
+        if last_kind == "[":
             idx_ty = self.visit(last.expression())
             return self._apply_index_assignment(recv_ty, idx_ty, rhs_ty, ctx)
 
-        if last_kind == '.':
+        if last_kind == ".":
             prop = last.Identifier().getText()
             return self._apply_property_assignment(recv_ty, prop, rhs_ty, ctx)
 
-        self.errors.err_ctx(last, "Una llamada no puede usarse como lado izquierdo de una asignación")
+        self.errors.err_ctx(
+            last, "Una llamada no puede usarse como lado izquierdo de una asignación"
+        )
         return self._set(ctx, recv_ty)
-
 
     def visitVariableDeclaration(self, ctx):
         name = ctx.Identifier().getText()
-        ann  = getattr(ctx, "typeAnnotation", None) and ctx.typeAnnotation()
+        ann = getattr(ctx, "typeAnnotation", None) and ctx.typeAnnotation()
         declared_ty = self._type_of(ann.type_()) if ann else Type.NULL
-        
+
         sym = self.current.resolve(name)
         if not sym:
             self.errors.err_ctx(ctx, f"Interno: variable '{name}' no encontrada")
@@ -385,46 +441,66 @@ class TypeChecker(CompiscriptVisitor):
             init_ty = self.visit(expr) if expr else self.visit(init)
 
         if getattr(declared_ty, "kind", None) == "class" and init is None:
-            self.errors.err_ctx(ctx, f"Variable '{name}' de tipo clase '{declared_ty.name}' requiere inicialización con 'new {declared_ty.name}()'")
+            self.errors.err_ctx(
+                ctx,
+                f"Variable '{name}' de tipo clase '{declared_ty.name}' requiere inicialización con 'new {declared_ty.name}()'",
+            )
             return None
 
-
-        if declared_ty == Type.NULL and isinstance(init_ty, ArrayType) and init_ty.base == Type.NULL:
+        if (
+            declared_ty == Type.NULL
+            and isinstance(init_ty, ArrayType)
+            and init_ty.base == Type.NULL
+        ):
             if getattr(init_ty, "empty", False):
-                self.errors.err_ctx(ctx, f"Variable '{name}': no se puede inferir el tipo a partir de un arreglo vacío, por favor agrega una anotación de tipo")
+                self.errors.err_ctx(
+                    ctx,
+                    f"Variable '{name}': no se puede inferir el tipo a partir de un arreglo vacío, por favor agrega una anotación de tipo",
+                )
                 return None
 
         if declared_ty == Type.NULL and init_ty is not None:
             sym.ty = init_ty
         elif init_ty is not None and not self._can_assign(declared_ty, init_ty):
-            self.errors.err_ctx(ctx, f"No se puede asignar {init_ty} a {declared_ty} en '{name}'")
+            self.errors.err_ctx(
+                ctx, f"No se puede asignar {init_ty} a {declared_ty} en '{name}'"
+            )
 
         return None
-
 
     def visitLeftHandSide(self, ctx):
         # Tipo base: Identifier/NewExpr/This
         cur = self.visit(ctx.primaryAtom())
 
         # Recorre cada sufijo encadenado
-        for suf in (ctx.suffixOp() or []):
+        for suf in ctx.suffixOp() or []:
             kind = suf.getChild(0).getText()
 
             # Llamada: '(' arguments? ')'
-            if kind == '(':
+            if kind == "(":
                 args_ctx = getattr(suf, "arguments", None) and suf.arguments()
-                args = (args_ctx.expression() if (args_ctx and hasattr(args_ctx, "expression")) else [])
+                args = (
+                    args_ctx.expression()
+                    if (args_ctx and hasattr(args_ctx, "expression"))
+                    else []
+                )
                 args_ty = [self.visit(e) for e in args]
 
                 # Llamada a función normal
                 if isinstance(cur, FuncSymbol):
                     params = cur.params
                     if len(params) != len(args_ty):
-                        self.errors.err_ctx(suf, f"'{cur.name}' espera {len(params)} args, recibió {len(args_ty)}")
+                        self.errors.err_ctx(
+                            suf,
+                            f"'{cur.name}' espera {len(params)} args, recibió {len(args_ty)}",
+                        )
                     else:
                         for i, (p, a) in enumerate(zip(params, args_ty), 1):
                             if not self._can_assign(p.ty, a):
-                                self.errors.err_ctx(suf, f"Arg {i} de '{cur.name}': esperado {p.ty}, recibió {a}")
+                                self.errors.err_ctx(
+                                    suf,
+                                    f"Arg {i} de '{cur.name}': esperado {p.ty}, recibió {a}",
+                                )
                     cur = cur.ty
                     continue
 
@@ -434,13 +510,22 @@ class TypeChecker(CompiscriptVisitor):
                     if ctor:
                         params = ctor.params
                         if len(params) != len(args_ty):
-                            self.errors.err_ctx(suf, f"constructor de {cls.name} espera {len(params)} args, recibió {len(args_ty)}")
+                            self.errors.err_ctx(
+                                suf,
+                                f"constructor de {cls.name} espera {len(params)} args, recibió {len(args_ty)}",
+                            )
                         else:
                             for i, (p, a) in enumerate(zip(params, args_ty), 1):
                                 if not self._can_assign(p.ty, a):
-                                    self.errors.err_ctx(suf, f"Arg {i} del constructor de {cls.name}: esperado {p.ty}, recibió {a}")
+                                    self.errors.err_ctx(
+                                        suf,
+                                        f"Arg {i} del constructor de {cls.name}: esperado {p.ty}, recibió {a}",
+                                    )
                     elif args_ty:
-                        self.errors.err_ctx(suf, f"{cls.name} no tiene constructor que acepte {len(args_ty)} args")
+                        self.errors.err_ctx(
+                            suf,
+                            f"{cls.name} no tiene constructor que acepte {len(args_ty)} args",
+                        )
                     # el tipo de la expresión sigue siendo la clase
                     cur = cls
                     continue
@@ -451,7 +536,7 @@ class TypeChecker(CompiscriptVisitor):
                 continue
 
             # Indexación: '[' expression ']'
-            if kind == '[':
+            if kind == "[":
                 idx_ty = self.visit(suf.expression())
                 if idx_ty != Type.INT:
                     self.errors.err_ctx(suf, "Índice de arreglo debe ser integer")
@@ -459,14 +544,20 @@ class TypeChecker(CompiscriptVisitor):
                     self.errors.err_ctx(suf, "Indexación sobre no-arreglo")
                     cur = Type.NULL
                 else:
-                    cur = (ArrayType(cur.base, cur.dimensions - 1) if cur.dimensions > 1 else cur.base)
+                    cur = (
+                        ArrayType(cur.base, cur.dimensions - 1)
+                        if cur.dimensions > 1
+                        else cur.base
+                    )
                 continue
 
             # Acceso a propiedad: '.' Identifier
-            if kind == '.':
+            if kind == ".":
                 prop = suf.Identifier().getText()
                 if not (hasattr(cur, "kind") and cur.kind == "class"):
-                    self.errors.err_ctx(suf, f"No se puede acceder propiedad '{prop}' sobre tipo {cur}")
+                    self.errors.err_ctx(
+                        suf, f"No se puede acceder propiedad '{prop}' sobre tipo {cur}"
+                    )
                     cur = Type.NULL
                 else:
                     psym = self._class_member(cur, prop)
@@ -485,11 +576,10 @@ class TypeChecker(CompiscriptVisitor):
 
         return self._set(ctx, cur)
 
-
     # Varibales Arrays
     def visitIndexExpr(self, ctx):
         recv_ty = self.visit(ctx.parentCtx.getChild(0))
-        idx_ty  = self.visit(ctx.expression())
+        idx_ty = self.visit(ctx.expression())
 
         if not isinstance(recv_ty, ArrayType):
             self.errors.err_ctx(ctx, "Indexación sobre no-arreglo")
@@ -498,12 +588,14 @@ class TypeChecker(CompiscriptVisitor):
         if idx_ty != Type.INT:
             self.errors.err_ctx(ctx, "Índice de arreglo debe ser integer")
 
-        elem_ty = (ArrayType(recv_ty.base, recv_ty.dimensions - 1)
-               if recv_ty.dimensions > 1 else recv_ty.base)
+        elem_ty = (
+            ArrayType(recv_ty.base, recv_ty.dimensions - 1)
+            if recv_ty.dimensions > 1
+            else recv_ty.base
+        )
 
         return self._set(ctx, elem_ty)
 
-    
     # Funciones y clases
     def visitFunctionDeclaration(self, ctx):
         prev_scope = self.current
@@ -519,7 +611,10 @@ class TypeChecker(CompiscriptVisitor):
             if cls and getattr(cls, "kind", "") == "class":
                 expected_ty = cls
                 if ret_ty != Type.VOID and ret_ty != expected_ty:
-                    self.errors.err_ctx(ctx, f"Constructor of '{cls.name}' cannot declare return type {ret_ty}")
+                    self.errors.err_ctx(
+                        ctx,
+                        f"Constructor of '{cls.name}' cannot declare return type {ret_ty}",
+                    )
                 self.fn_ret_stack.append(expected_ty)
             else:
                 self.errors.err_ctx(ctx, "Constructor declared outside a class?")
@@ -534,15 +629,14 @@ class TypeChecker(CompiscriptVisitor):
         self.current = prev_scope
         return r
 
-    
-    def visitParameter(self, ctx): # REVISAR
+    def visitParameter(self, ctx):  # REVISAR
         ty_ctx = ctx.type_() if hasattr(ctx, "type_") else None
         ty = self._type_of(ty_ctx) if ty_ctx else Type.NULL
         if ty == Type.VOID:
             self.errors.err_ctx(ctx, "Un parámetro no puede ser de tipo void")
         return ty
 
-    def visitParameters(self, ctx): # REVISAR
+    def visitParameters(self, ctx):  # REVISAR
         params = ctx.parameter() or []
         return [self.visit(p) for p in params]
 
@@ -554,7 +648,9 @@ class TypeChecker(CompiscriptVisitor):
         expr: CompiscriptParser.ExpressionContext = ctx.expression()
         if expected == Type.VOID:
             if expr is not None:
-                self.errors.err_ctx(ctx, "return no debe llevar expresión en función void")
+                self.errors.err_ctx(
+                    ctx, "return no debe llevar expresión en función void"
+                )
             return self._set(ctx, Type.VOID)
 
         if expr is None:
@@ -569,7 +665,7 @@ class TypeChecker(CompiscriptVisitor):
     def visitArguments(self, ctx):
         exprs = ctx.expression() or []
         return [self.visit(e) for e in exprs]
-    
+
     def visitCallExpr(self, ctx):
         # Si esta llamada es parte de un leftHandSide, visitLeftHandSide ya la procesó.
         par = getattr(ctx, "parentCtx", None)
@@ -578,16 +674,19 @@ class TypeChecker(CompiscriptVisitor):
             # Visita argumentos solo para disparar validaciones internas
             args = ctx.arguments()
             if args:
-                for e in (args.expression() or []):
+                for e in args.expression() or []:
                     self.visit(e)
             # El tipo final lo asignó visitLeftHandSide sobre el nodo LHS
             return self._set(ctx, Type.NULL)
 
         return super().visitCallExpr(ctx)
 
-
     def visitPrimaryExpr(self, ctx):
-        if ctx.getChildCount() == 3 and ctx.getChild(0).getText() == '(' and ctx.getChild(2).getText() == ')':
+        if (
+            ctx.getChildCount() == 3
+            and ctx.getChild(0).getText() == "("
+            and ctx.getChild(2).getText() == ")"
+        ):
             return self.visit(ctx.getChild(1))
         return self.visitChildren(ctx)
 
@@ -610,7 +709,9 @@ class TypeChecker(CompiscriptVisitor):
         if super_name:
             super_sym = self.current.resolve(super_name)
             if not isinstance(super_sym, ClassSymbol):
-                self.errors.err_ctx(ctx, f"Superclase '{super_name}' no encontrada o no es clase")
+                self.errors.err_ctx(
+                    ctx, f"Superclase '{super_name}' no encontrada o no es clase"
+                )
             else:
                 cls_sym.superclass = super_sym
 
@@ -619,10 +720,13 @@ class TypeChecker(CompiscriptVisitor):
                 # No aceptamos cualquier funcion con el mismo nombre
                 for mname, msym in super_sym.scope.symbols.items():
                     if mname not in cls_scope.symbols:
-                        cls_scope.define(msym)  
+                        cls_scope.define(msym)
                     else:
                         sub_sym = cls_scope.resolve(mname)
-                        if getattr(sub_sym, "kind", "") == "func" and getattr(msym, "kind", "") == "func":
+                        if (
+                            getattr(sub_sym, "kind", "") == "func"
+                            and getattr(msym, "kind", "") == "func"
+                        ):
                             self._check_override(sub_sym, msym, ctx)
 
         r = self.visitChildren(ctx)
@@ -630,36 +734,45 @@ class TypeChecker(CompiscriptVisitor):
         self.current = prev
         return r
 
-
-
     def visitThisExpr(self, ctx):
         sym = self.current.resolve("this")
         if not sym:
             self.errors.err_ctx(ctx, "Uso de 'this' fuera de una clase")
             return self._set(ctx, Type.NULL)
         return self._set(ctx, sym.ty)
-    
+
     def visitPropertyAccessExpr(self, ctx):
         parent = ctx.parentCtx
-        recv_node = parent.getChild(0) if parent and parent.getChildCount() > 0 else None
+        recv_node = (
+            parent.getChild(0) if parent and parent.getChildCount() > 0 else None
+        )
         recv_ty = self.visit(recv_node) if recv_node else Type.NULL
 
-        prop = ctx.Identifier().getText() if hasattr(ctx, "Identifier") and ctx.Identifier() \
-           else ctx.getChild(1).getText()
+        prop = (
+            ctx.Identifier().getText()
+            if hasattr(ctx, "Identifier") and ctx.Identifier()
+            else ctx.getChild(1).getText()
+        )
 
         if not (hasattr(recv_ty, "kind") and recv_ty.kind == "class"):
-            self.errors.err_ctx(ctx, f"No se puede acceder propiedad '{prop}' sobre tipo {recv_ty}")
+            self.errors.err_ctx(
+                ctx, f"No se puede acceder propiedad '{prop}' sobre tipo {recv_ty}"
+            )
             return self._set(ctx, Type.NULL)
 
-        psym = recv_ty.resolve_member(prop) if hasattr(recv_ty, "resolve_member") \
-           else (recv_ty.scope.resolve(prop) if getattr(recv_ty, "scope", None) else None)
-
+        psym = (
+            recv_ty.resolve_member(prop)
+            if hasattr(recv_ty, "resolve_member")
+            else (
+                recv_ty.scope.resolve(prop) if getattr(recv_ty, "scope", None) else None
+            )
+        )
 
         psym = recv_ty.resolve_member(prop)
         if not psym:
             self.errors.err_ctx(ctx, f"Propiedad '{prop}' no existe")
             return self._set(ctx, Type.NULL)
-        
+
         return self._set(ctx, psym if getattr(psym, "kind", "") == "func" else psym.ty)
 
     def visitNewExpr(self, ctx):
@@ -674,7 +787,7 @@ class TypeChecker(CompiscriptVisitor):
             return self._set(ctx, Type.NULL)
 
         args = ctx.arguments()
-        if isinstance(args, list):       
+        if isinstance(args, list):
             args = args[0] if args else None
 
         exprs = args.expression() if (args and hasattr(args, "expression")) else []
@@ -685,15 +798,21 @@ class TypeChecker(CompiscriptVisitor):
         if ctor:
             params = ctor.params
             if len(params) != len(args_ty):
-                self.errors.err_ctx(ctx,
-                    f"constructor de {name} espera {len(params)} args, recibió {len(args_ty)}")
+                self.errors.err_ctx(
+                    ctx,
+                    f"constructor de {name} espera {len(params)} args, recibió {len(args_ty)}",
+                )
             else:
                 for i, (p, a) in enumerate(zip(params, args_ty), 1):
                     if not self._can_assign(p.ty, a):
-                        self.errors.err_ctx(ctx,
-                            f"Arg {i} del constructor de {name}: esperado {p.ty}, recibió {a}")
+                        self.errors.err_ctx(
+                            ctx,
+                            f"Arg {i} del constructor de {name}: esperado {p.ty}, recibió {a}",
+                        )
         elif args_ty:
-            self.errors.err_ctx(ctx, f"{name} no tiene constructor que acepte {len(args_ty)} args")
+            self.errors.err_ctx(
+                ctx, f"{name} no tiene constructor que acepte {len(args_ty)} args"
+            )
 
         return self._set(ctx, sym)
 
@@ -704,7 +823,7 @@ class TypeChecker(CompiscriptVisitor):
         self.current = fscope
 
         self.loop_depth += 1
-        
+
         try:
             exprs = list(ctx.expression() or [])
 
@@ -743,17 +862,24 @@ class TypeChecker(CompiscriptVisitor):
             coll_ty = self.visit(coll_expr) if coll_expr else Type.NULL
 
             if isinstance(coll_ty, ArrayType):
-                elem_ty = (ArrayType(coll_ty.base, coll_ty.dimensions - 1)
-                        if coll_ty.dimensions > 1 else coll_ty.base)
+                elem_ty = (
+                    ArrayType(coll_ty.base, coll_ty.dimensions - 1)
+                    if coll_ty.dimensions > 1
+                    else coll_ty.base
+                )
             else:
-                self.errors.err_ctx(ctx, f"foreach espera un arreglo; recibió {coll_ty}")
+                self.errors.err_ctx(
+                    ctx, f"foreach espera un arreglo; recibió {coll_ty}"
+                )
                 elem_ty = Type.NULL
 
             name = getattr(ctx, "Identifier", None) and ctx.Identifier().getText()
             if name:
                 sym = self.current.resolve(name)
                 if not sym:
-                    self.errors.err_ctx(ctx, f"Interno: variable '{name}' no encontrada en foreach")
+                    self.errors.err_ctx(
+                        ctx, f"Interno: variable '{name}' no encontrada en foreach"
+                    )
                 else:
                     sym.ty = elem_ty
 
@@ -771,13 +897,12 @@ class TypeChecker(CompiscriptVisitor):
         if self.loop_depth <= 0:
             self.errors.err_ctx(ctx, "'continue' fuera de un bucle")
         return None
-    
+
     def visitBreakStatement(self, ctx):
         # válido si estamos dentro de un ciclo o de un switch
         if self.loop_depth == 0 and self.switch_depth == 0:
             self.errors.err_ctx(ctx, "break fuera de un ciclo o switch")
         return None
-
 
     # IF
     def visitIfStatement(self, ctx):
@@ -785,8 +910,10 @@ class TypeChecker(CompiscriptVisitor):
         cond_ty = self.visit(cond) if cond else Type.NULL
         self._expect_bool(cond or ctx, cond_ty)
         body = ctx.block()
-        if len(body) >= 1: self.visit(body[0])
-        if len(body) >= 2: self.visit(body[1])
+        if len(body) >= 1:
+            self.visit(body[0])
+        if len(body) >= 2:
+            self.visit(body[1])
 
     # Bool EXPR
     def visitRelationalExpr(self, ctx):
@@ -794,27 +921,30 @@ class TypeChecker(CompiscriptVisitor):
         if n == 1:
             return self.visit(ctx.getChild(0))
 
-        left  = self.visit(ctx.getChild(0))
-        op    = ctx.getChild(1).getText()
+        left = self.visit(ctx.getChild(0))
+        op = ctx.getChild(1).getText()
         right = self.visit(ctx.getChild(2))
 
         if left not in (Type.INT, Type.FLOAT) or right not in (Type.INT, Type.FLOAT):
-            self.errors.err_ctx(ctx, f"Comparación {op} requiere números, recibió {left} y {right}")
+            self.errors.err_ctx(
+                ctx, f"Comparación {op} requiere números, recibió {left} y {right}"
+            )
 
         return self._set(ctx, Type.BOOL)
-
 
     def visitEqualityExpr(self, ctx):
         n = ctx.getChildCount()
         if n == 1:
             return self.visit(ctx.getChild(0))
-        
+
         left = self.visit(ctx.getChild(0))
         op = ctx.getChild(1).getText()
         right = self.visit(ctx.getChild(2))
 
         if not self._can_assign(left, right) and not self._can_assign(right, left):
-            self.errors.err_ctx(ctx, f"Comparación {op} entre tipos incompatibles: {left} y {right}")
+            self.errors.err_ctx(
+                ctx, f"Comparación {op} entre tipos incompatibles: {left} y {right}"
+            )
 
         return self._set(ctx, Type.BOOL)
 
@@ -828,7 +958,9 @@ class TypeChecker(CompiscriptVisitor):
         right = self.visit(ctx.getChild(2))
 
         if left != Type.BOOL or right != Type.BOOL:
-            self.errors.err_ctx(ctx, f"Operación {op} requiere booleanos, recibió {left} y {right}")
+            self.errors.err_ctx(
+                ctx, f"Operación {op} requiere booleanos, recibió {left} y {right}"
+            )
 
         return self._set(ctx, Type.BOOL)
 
@@ -842,7 +974,9 @@ class TypeChecker(CompiscriptVisitor):
         right = self.visit(ctx.getChild(2))
 
         if left != Type.BOOL or right != Type.BOOL:
-            self.errors.err_ctx(ctx, f"Operación {op} requiere booleanos, recibió {left} y {right}")
+            self.errors.err_ctx(
+                ctx, f"Operación {op} requiere booleanos, recibió {left} y {right}"
+            )
 
         return self._set(ctx, Type.BOOL)
 
@@ -850,17 +984,19 @@ class TypeChecker(CompiscriptVisitor):
     def visitAdditiveExpr(self, ctx):
         n = ctx.getChildCount()
 
-        if n == 1: # Por alguna razon las variables entran aqui lol no entiendo
+        if n == 1:  # Por alguna razon las variables entran aqui lol no entiendo
             return self.visit(ctx.getChild(0))
 
-        left  = self.visit(ctx.getChild(0))
+        left = self.visit(ctx.getChild(0))
         op = ctx.getChild(1).getText()
         right = self.visit(ctx.getChild(2))
 
         if left in (Type.INT, Type.FLOAT) and right in (Type.INT, Type.FLOAT):
-            return self._set(ctx, Type.FLOAT if Type.FLOAT in (left, right) else Type.INT)
+            return self._set(
+                ctx, Type.FLOAT if Type.FLOAT in (left, right) else Type.INT
+            )
 
-        if op == '+' and (left == Type.STRING or right == Type.STRING):
+        if op == "+" and (left == Type.STRING or right == Type.STRING):
             return self._set(ctx, Type.STRING)
 
         self.errors.err_ctx(ctx, f"Operación {op} inválida para {left} y {right}")
@@ -875,26 +1011,30 @@ class TypeChecker(CompiscriptVisitor):
 
         left = self.visit(ctx.getChild(0))
         op = ctx.getChild(1).getText()
-        right = self.visit(ctx.getChild(2)) 
+        right = self.visit(ctx.getChild(2))
 
         if op == "%":
             if left == Type.INT and right == Type.INT:
                 return self._set(ctx, Type.INT)
-            self.errors.err_ctx(ctx, f"Operación % requiere enteros, recibió {left} y {right}")
+            self.errors.err_ctx(
+                ctx, f"Operación % requiere enteros, recibió {left} y {right}"
+            )
             # Para evitar cascada de errores, asumimos que el resultado pretendido era entero
             return self._set(ctx, Type.INT)
 
-        elif op in ('*', '/'):
+        elif op in ("*", "/"):
             if left in (Type.INT, Type.FLOAT) and right in (Type.INT, Type.FLOAT):
-                if op == '/':
+                if op == "/":
                     # División produce float (int/int -> float también)
                     return self._set(ctx, Type.FLOAT)
                 # Multiplicación: promoción a float si alguno es float
-                return self._set(ctx, Type.FLOAT if Type.FLOAT in (left, right) else Type.INT)
+                return self._set(
+                    ctx, Type.FLOAT if Type.FLOAT in (left, right) else Type.INT
+                )
 
             self.errors.err_ctx(ctx, f"Operación {op} inválida para {left} y {right}")
             return self._set(ctx, Type.NULL)
-        
+
         self.errors.err_ctx(ctx, f"Operador desconocido: {op}")
         return self._set(ctx, Type.NULL)
 
@@ -906,11 +1046,11 @@ class TypeChecker(CompiscriptVisitor):
         op = ctx.getChild(0).getText()
         ty = self.visit(ctx.getChild(1))
 
-        if op == '!':
+        if op == "!":
             self._expect_bool(ctx, ty)
             return self._set(ctx, Type.BOOL)
 
-        if op == '-':
+        if op == "-":
             if ty in (Type.INT, Type.FLOAT):
                 return self._set(ctx, ty)
             self.errors.err_ctx(ctx, f"Operador '-' requiere numérico, recibió {ty}")
@@ -918,7 +1058,6 @@ class TypeChecker(CompiscriptVisitor):
 
         # fallback
         return self.visitChildren(ctx)
-
 
     def visitTernaryExpr(self, ctx):
         # Regla: conditionalExpr : logicalOrExpr ('?' expression ':' expression)?
@@ -943,7 +1082,9 @@ class TypeChecker(CompiscriptVisitor):
                 ub = self._unify_base(then_ty.base, else_ty.base)
                 if ub is not None:
                     return self._set(ctx, ArrayType(ub, then_ty.dimensions))
-            self.errors.err_ctx(ctx, f"Tipos incompatibles en ternario: {then_ty} y {else_ty}")
+            self.errors.err_ctx(
+                ctx, f"Tipos incompatibles en ternario: {then_ty} y {else_ty}"
+            )
             return self._set(ctx, ArrayType(Type.NULL, then_ty.dimensions))
 
         # Primitivos numéricos: INT/FLOAT -> promo
@@ -952,14 +1093,16 @@ class TypeChecker(CompiscriptVisitor):
             return self._set(ctx, ub)
 
         # Incompatibles (ej. int vs string; clase vs int, etc.)
-        self.errors.err_ctx(ctx, f"Tipos incompatibles en ternario: {then_ty} y {else_ty}")
+        self.errors.err_ctx(
+            ctx, f"Tipos incompatibles en ternario: {then_ty} y {else_ty}"
+        )
         return self._set(ctx, Type.NULL)
 
     def visitExprNoAssign(self, ctx):
         # Alt de assignmentExpr: conditionalExpr # ExprNoAssign
         ty = self.visit(ctx.getChild(0))
         return self._set(ctx, ty)
-    
+
     def visitExpression(self, ctx):
         # Regla: expression : assignmentExpr
         ty = self.visit(ctx.getChild(0))
@@ -968,12 +1111,12 @@ class TypeChecker(CompiscriptVisitor):
     def visitPropertyAssignExpr(self, ctx):
         # Alt: lhs=leftHandSide '.' Identifier '=' assignmentExpr
         recv_ty = self.visit(ctx.leftHandSide())
-        prop    = ctx.Identifier().getText()
-        rhs_ty  = self.visit(ctx.assignmentExpr())
+        prop = ctx.Identifier().getText()
+        rhs_ty = self.visit(ctx.assignmentExpr())
         return self._apply_property_assignment(recv_ty, prop, rhs_ty, ctx)
-    
+
     # Sentencias de Control / flujo
-    
+
     def visitWhileStatement(self, ctx):
         # while '(' expression ')' block
         cond = ctx.expression()
@@ -1021,9 +1164,14 @@ class TypeChecker(CompiscriptVisitor):
                     case_ty = self.visit(ce)
                     if not self._compatible_for_switch(cond_ty, case_ty):
                         if cond_ty == Type.BOOL:
-                            self.errors.err_ctx(ce, f"Se esperaba bool, se obtuvo {case_ty}")
+                            self.errors.err_ctx(
+                                ce, f"Se esperaba bool, se obtuvo {case_ty}"
+                            )
                         else:
-                            self.errors.err_ctx(ce, f"Case incompatible con switch({cond_ty}): {case_ty}")
+                            self.errors.err_ctx(
+                                ce,
+                                f"Case incompatible con switch({cond_ty}): {case_ty}",
+                            )
 
                 for st in sc.statement() or []:
                     self.visit(st)
@@ -1034,20 +1182,17 @@ class TypeChecker(CompiscriptVisitor):
             self.switch_depth -= 1
         return None
 
-
     def visitSwitchCase(self, ctx):
         # 'case' expression ':' statement*
-        for st in (ctx.statement() or []):
+        for st in ctx.statement() or []:
             self.visit(st)
         return None
-
 
     def visitDefaultCase(self, ctx):
         # 'default' ':' statement*
-        for st in (ctx.statement() or []):
+        for st in ctx.statement() or []:
             self.visit(st)
         return None
-    
 
     def visitTryCatchStatement(self, ctx):
         # try block 'catch' '(' Identifier ')' block
@@ -1073,8 +1218,7 @@ class TypeChecker(CompiscriptVisitor):
         expr = getattr(ctx, "expression", None) and ctx.expression()
         if expr:
             self.visit(expr)
-        return None    
-
+        return None
 
     # Clases / tipos auxiliares
 
@@ -1111,25 +1255,25 @@ class TypeChecker(CompiscriptVisitor):
         ty = self._type_of(ctx)
         return self._set(ctx, ty)
 
-        
-
     def _type_of(self, tctx):
         if tctx is None:
             return Type.NULL
-        
-        text = tctx.getText() 
-        
+
+        text = tctx.getText()
+
         dims = text.count("[]")
-        
+
         base_name = text.replace("[]", "")
 
         prim = {
-            "int": Type.INT, "integer": Type.INT,
+            "int": Type.INT,
+            "integer": Type.INT,
             "float": Type.FLOAT,
-            "bool": Type.BOOL, "boolean": Type.BOOL,
+            "bool": Type.BOOL,
+            "boolean": Type.BOOL,
             "string": Type.STRING,
             "void": Type.VOID,
-            "null": Type.NULL
+            "null": Type.NULL,
         }.get(base_name, None)
 
         if prim is not None:
@@ -1143,4 +1287,3 @@ class TypeChecker(CompiscriptVisitor):
                 base = Type.NULL
 
         return ArrayType(base, dims) if dims > 0 else base
-    

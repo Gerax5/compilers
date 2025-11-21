@@ -16,7 +16,7 @@ class SymbolTableBuilder(CompiscriptListener):
         self.switch_depth = 0
 
     # Program
-    def enterProgram(self, ctx): 
+    def enterProgram(self, ctx):
         self.scopes[ctx] = self.current
 
     # Block
@@ -30,10 +30,10 @@ class SymbolTableBuilder(CompiscriptListener):
     # Variables
     def enterConstantDeclaration(self, ctx):
         name = ctx.Identifier().getText()
-        
+
         ann = ctx.typeAnnotation()
         ty_decl = self._type_of(ann.type_()) if ann else Type.NULL
-        
+
         sym = VarSymbol(name, ty_decl, is_const=True)
         if not self.current.define(sym):
             self.errors.err_ctx(ctx, f"Constant '{name}' redeclared in this scope")
@@ -45,7 +45,9 @@ class SymbolTableBuilder(CompiscriptListener):
 
         func_scope, func_sym = self._find_function_scope()
         if func_sym and any(p.name == name for p in func_sym.params):
-            self.errors.err_ctx(ctx, f"Variable '{name}' redeclared (already a parameter)")
+            self.errors.err_ctx(
+                ctx, f"Variable '{name}' redeclared (already a parameter)"
+            )
 
         sym = VarSymbol(name, ty_decl, is_const=False)
         if not self.current.define(sym):
@@ -63,9 +65,9 @@ class SymbolTableBuilder(CompiscriptListener):
 
     # Functions
     def enterFunctionDeclaration(self, ctx):
-        name = ctx.Identifier().getText() 
+        name = ctx.Identifier().getText()
         ty = ctx.type_()
-        ret  = self._type_of(ty) if ty else Type.VOID
+        ret = self._type_of(ty) if ty else Type.VOID
         func = FuncSymbol(name, ret, [])
         if not self.current.define(func):
             self.errors.err_ctx(ctx, f"Function '{name}' redeclared")
@@ -79,7 +81,7 @@ class SymbolTableBuilder(CompiscriptListener):
         self.scopes[ctx] = self.current
 
         if ctx.parameters():
-            for p in ctx.parameters().parameter(): 
+            for p in ctx.parameters().parameter():
                 p: CompiscriptParser.ParametersContext
                 pid = p.Identifier().getText()
                 pty_ = p.type_()
@@ -90,13 +92,13 @@ class SymbolTableBuilder(CompiscriptListener):
 
     def exitFunctionDeclaration(self, ctx):
         self.current = self.current.parent
-    
+
     # Clases
     def enterClassDeclaration(self, ctx):
         name = ctx.Identifier(0).getText()
 
         super_cls = None
-        if len(ctx.Identifier()) >= 2:           # hay superclase después de ':'
+        if len(ctx.Identifier()) >= 2:  # hay superclase después de ':'
             super_name = ctx.Identifier(1).getText()
             sup = self.current.resolve(super_name)
             if not sup or getattr(sup, "kind", "") != "class":
@@ -137,7 +139,6 @@ class SymbolTableBuilder(CompiscriptListener):
         nameVariable = ctx.Identifier().getText()
         self.current.define(VarSymbol(nameVariable, Type.NULL))
 
-
     def exitForeachStatement(self, ctx):
         self.loop_depth -= 1
         self.current = self.current.parent
@@ -165,24 +166,25 @@ class SymbolTableBuilder(CompiscriptListener):
             scope = scope.parent
         return None, None
 
-
     def _type_of(self, tctx):
         if tctx is None:
             return Type.NULL
-        
-        text = tctx.getText() 
-        
+
+        text = tctx.getText()
+
         dims = text.count("[]")
-        
+
         base_name = text.replace("[]", "")
 
         prim = {
-            "int": Type.INT, "integer": Type.INT,
+            "int": Type.INT,
+            "integer": Type.INT,
             "float": Type.FLOAT,
-            "bool": Type.BOOL, "boolean": Type.BOOL,
+            "bool": Type.BOOL,
+            "boolean": Type.BOOL,
             "string": Type.STRING,
             "void": Type.VOID,
-            "null": Type.NULL
+            "null": Type.NULL,
         }.get(base_name, None)
 
         if prim is not None:
