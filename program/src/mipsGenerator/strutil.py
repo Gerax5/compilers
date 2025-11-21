@@ -5,8 +5,5 @@ class StrUtil:
         Ejemplo: "Hola mundo"
         """
         return (
-            isinstance(x, str) 
-            and len(x) >= 2 
-            and x.startswith('"') 
-            and x.endswith('"')
+            isinstance(x, str) and len(x) >= 2 and x.startswith('"') and x.endswith('"')
         )
