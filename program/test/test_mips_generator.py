@@ -225,3 +225,64 @@ def test_string_int_concatenation():
     assert "la $a0, str0" in code
     assert "li $v0, 4" in code
     assert "syscall" in code
+
+
+def test_mips_array_declaration_and_length():
+    src = """
+    let numbers: integer[] = [1, 2, 3];
+    """
+    parser, tree = parse_src(src)
+    stb, errors = build_symbols(tree)
+    tc, errors = type_check(stb, errors, parser, tree)
+    cg = gen_code(tree, stb.globalScope.symbols)
+    code = gen_mips(cg, stb.globalScope.symbols)
+
+    assert ".data" in code
+    assert "var_numbers: .word 0" in code
+
+    assert ".space 12" in code
+    assert "_len: .word 3" in code
+
+
+def test_mips_function_call_and_return():
+    src = """
+    function add(a: integer, b: integer): integer {
+        return a + b;
+    }
+    let result: integer = add(2, 3);
+    """
+    parser, tree = parse_src(src)
+    stb, errors = build_symbols(tree)
+    tc, errors = type_check(stb, errors, parser, tree)
+    cg = gen_code(tree, stb.globalScope.symbols)
+    code = gen_mips(cg, stb.globalScope.symbols)
+
+    assert not errors.errors
+
+    assert ".data" in code
+    assert "var_result: .word 0" in code
+
+    assert "func_add:" in code
+
+    assert "jal func_add" in code
+
+
+def test_mips_try_catch_generates_code_and_prints():
+    src = """
+    try {
+        print(1);
+    } catch (e) {
+        print(2);
+    }
+    """
+    parser, tree = parse_src(src)
+    stb, errors = build_symbols(tree)
+    tc, errors = type_check(stb, errors, parser, tree)
+    cg = gen_code(tree, stb.globalScope.symbols)
+    code = gen_mips(cg, stb.globalScope.symbols)
+
+    assert not errors.errors
+
+    assert ".text" in code
+    assert "li $v0, 1" in code
+    assert "syscall" in code

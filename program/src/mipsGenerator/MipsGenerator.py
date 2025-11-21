@@ -28,6 +28,8 @@ class MIPSGenerator:
         self.classman = ClassManager()
         self.printer = MipsPrinter(self)
         self.arrayutil = ArrayUtil(self)
+        self.handler_stack = []
+        self.current_handler = None
 
     def _is_string_literal(self, x):
         return isinstance(x, str) and len(x) >= 2 and x[0] == '"' and x[-1] == '"'
