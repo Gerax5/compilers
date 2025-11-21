@@ -576,8 +576,8 @@ def test_try_catch_codegen_success():
     quads = cg.quadruples
     assert any(q["op"] == "trybegin" for q in quads)
     assert any(q["op"] == "tryend" for q in quads)
-    assert any(q["op"] == "label" and "Lcatch_" in q["result"] for q in quads)
-    assert any(q["op"] == "label" and "Ltry_end_" in q["result"] for q in quads)
+    assert any(q["op"] == "label" and "L0catch_" in q["result"] for q in quads)
+    assert any(q["op"] == "label" and "L0try_end_" in q["result"] for q in quads)
     assert any(
         q["op"] == "=" and q["arg1"] == "exception" and q["result"] == "e"
         for q in quads
@@ -603,7 +603,7 @@ def test_continue_in_loop_codegen_success():
 
     quads = cg.quadruples
     # continue en while salta a Lwhile_test_ (tu pila mapea continue → Ltest)
-    assert any(q["op"] == "goto" and "Lwhile_test_" in str(q["result"]) for q in quads)
+    assert any(q["op"] == "goto" and "L1while_test_" in str(q["result"]) for q in quads)
 
 
 # ----- Fallo
@@ -636,7 +636,7 @@ def test_break_in_loop_codegen_success():
 
     quads = cg.quadruples
     # break en while debe saltar a Lwhile_end_
-    assert any(q["op"] == "goto" and "Lwhile_end_" in str(q["result"]) for q in quads)
+    assert any(q["op"] == "goto" and "L1while_end_" in str(q["result"]) for q in quads)
 
 
 # ----- Fallo
@@ -671,15 +671,15 @@ def test_switch_basic_codegen_success():
     assert not errors.errors
 
     quads = cg.quadruples
-    assert any(q["op"] == "label" and "Lswitch_end_" in q["result"] for q in quads)
+    assert any(q["op"] == "label" and "L0switch_end_" in q["result"] for q in quads)
     # Debe existir la comparación == entre scrutinee y case
     assert any(q["op"] == "==" for q in quads)
     # Y un ifTrue saltando a un Lcase_
     assert any(
-        q["op"] == "ifTrue" and str(q["result"]).startswith("Lcase_") for q in quads
+        q["op"] == "ifTrue" and str(q["result"]).startswith("L0case_") for q in quads
     )
     # El break debe saltar a Lswitch_end_
-    assert any(q["op"] == "goto" and "Lswitch_end_" in str(q["result"]) for q in quads)
+    assert any(q["op"] == "goto" and "L0switch_end_" in str(q["result"]) for q in quads)
 
 
 def test_switch_no_default_fallthrough_success():
@@ -702,8 +702,8 @@ def test_switch_no_default_fallthrough_success():
 
     quads = cg.quadruples
     # Debe existir al menos un label de case y el end
-    assert any(q["op"] == "label" and "Lcase_" in q["result"] for q in quads)
-    assert any(q["op"] == "label" and "Lswitch_end_" in q["result"] for q in quads)
+    assert any(q["op"] == "label" and "L1case_" in q["result"] for q in quads)
+    assert any(q["op"] == "label" and "L1switch_end_" in q["result"] for q in quads)
 
 
 # ----- Fallo
