@@ -19,8 +19,7 @@ class MipsPrinter:
             return self._emit_literal(arg)
 
         
-            return self._emit_variable(arg)
-        
+        print("HOLA ENTRO ACA CREO")        
 
         # C) variable
         if isinstance(arg, str):

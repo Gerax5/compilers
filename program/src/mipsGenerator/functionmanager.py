@@ -4,6 +4,7 @@ class FunctionManager:
         self.params = {}        # func_name -> [param1, param2, ...]
         self.localVarName = {}
         self.locals = {}        # func_name -> set(varnames)
+        self.param_index = 0
 
     # ------------------------------------
     #  BEGIN FUNCTION
@@ -13,6 +14,7 @@ class FunctionManager:
         self.params[name] = []
         self.localVarName[name] = {}
         self.locals[name] = set()
+        self.param_index = 0
         return [
             f"{classname}{name}:",
             "\taddiu $sp, $sp, -8",
@@ -39,16 +41,26 @@ class FunctionManager:
         clean = name.replace("var_", "")
         return f"var_{func}_{clean}"
 
-    def save_params_to_memory(self):
+    def save_params_to_memory(self, is_method=False):
         """
-        Genera las instrucciones para sw $a0, var_func_x, etc
+        Guarda parámetros en memoria teniendo en cuenta:
+        - funciones normales:   a0 = primer parámetro
+        - métodos de clases:    a0 = this, a1 = primer parámetro real
         """
         func = self.current_function
         code = []
+
+        # base = 0 para funciones normales
+        # base = 1 para métodos (porque a0 es this)
+        base = 1 if is_method else 0
+
         for i, pname in enumerate(self.params[func]):
+            reg = f"$a{base + i}"
             local_name = self.get_param_storage(func, pname)
-            code.append(f"\tsw $a{i}, {local_name}")
+            code.append(f"\tsw {reg}, {local_name}")
+
         return code
+
 
     # ------------------------------------
     #  MAP VARIABLE TO REGISTER

@@ -23,6 +23,7 @@ class MIPSGenerator:
         self.types = {}
         self.arrays = {}
         self.handler_stack = []
+        self.class_variables = {}
         self.current_handler = None
         self.varutil = VarUtil()
         self.strutil = StrUtil()
@@ -179,6 +180,9 @@ class MIPSGenerator:
                     continue  # función
 
                 if q["op"] == "call":
+                    if(key == "result" and val.startswith("t")):
+                        self.variables.add(val)
+                        pass
                     continue  # llamada
 
                 if self._is_string_literal(val):
@@ -248,6 +252,7 @@ class MIPSGenerator:
         for q in self.quadruples:
             if q["op"] == "class":
                 inClass = q["result"]
+                self.class_variables[inClass] = set()
                 self.classman.begin_class(inClass)
                 continue
 
@@ -447,6 +452,10 @@ class MIPSGenerator:
             self.current_handler = self.handler_stack[-1] if self.handler_stack else None
             return
 
+        elif op == "endfunc":
+            self.output += self.funcman.end_function()
+            return
+
 
         elif op == "ifFalse":
             self.output += self._load("$t0", arg1)
@@ -499,10 +508,18 @@ class MIPSGenerator:
             field = arg2
             value = res
 
+            print("SETPROP:", inst, field, value)
+
+            print(f"Current function: {self.funcman.current_function}")
+            print(f"Current function: {self.funcman.localVarName}")
+            print(f"Current class: {self.classman.current_class}")
+
             class_name = self.classman.current_class
             storage = self.classman.resolve_field(class_name, field)
 
-            self.output += [f"\tlw $t0, {value}", f"\tsw $t0, {storage}"]
+            cur_value = self.funcman.localVarName[self.funcman.current_function][value]
+
+            self.output += [f"\tlw $t0, {cur_value}", f"\tsw $t0, {storage}"]
             return
 
         if op == "getprop":
@@ -553,19 +570,37 @@ class MIPSGenerator:
             ]
 
             if "constructor" in self.classman.classes[class_name]["methods"]:
-                # llamar constructor si existe
                 ctor = f"func_{class_name}_constructor"
 
-                self.output += [
-                    f"\tlw $a0, {obj}",  # this
-                    f"\tjal {ctor}",  # constructor()
-                ]
+                # Primero cargar THIS en $a0
+                self.output.append(f"\tlw $a0, {obj}")  # <-- CORRECTO: a0 = this
+
+                # Cargar los parámetros comenzando desde a1
+                for i, p in enumerate(self.pending_params, start=1):
+                    if isinstance(p, int):
+                        self.output.append(f"\tli $a{i}, {p}")
+                    else:
+                        if self.strings.get(p):
+                            label = self.strings[p]
+                            self.output.append(f"\tla $a{i}, {label}")
+                        else:
+                            self.output.append(f"\tlw $a{i}, {p}")
+
+                self.pending_params = []
+
+                # Llamar al constructor
+                self.output.append(f"\tjal {ctor}")
             return
 
         if op == "param":
             self.funcman.add_param(self.funcman.current_function, res)
-            self.output += self.funcman.save_params_to_memory()
+
+            is_method = self.classman.current_class is not None
+            self.output += self.funcman.save_params_to_memory(is_method=is_method)
             return
+
+        if op == "inherit":
+            pass
 
         if op == "call_param":
             self.pending_params.append(arg1)
@@ -666,5 +701,26 @@ class MIPSGenerator:
 
         # ---------- PRINT ----------
         elif op == "print":
+            print("CURR CLASS",self.classman.current_class)
+
+            if self.classman.current_class:    
+                raw_arg1 = arg1.replace("var_", "").replace("tmp_", "")        
+                raw_class = self.classman.current_class.replace("var_", "").replace("tmp_", "")
+                raw_function = self.funcman.current_function.replace("func_", "").replace(f"{raw_class}_", "")
+                self.symbol_table[raw_class].resolve_member(raw_function)
+
+                var = self.symbol_table[raw_class].resolve_member(raw_function).params
+                for param in var:
+                    if(param.name == raw_arg1): 
+                        self.types[arg1] = param.ty
+
+            if self.funcman.is_param(arg1):
+                param_reg = self.funcman.resolve_var(arg1)
+                if arg1 in self.types:
+                    self.types[param_reg] = self.types[arg1]
+                self.printer.emit(param_reg)
+                return
+            
+
             self.printer.emit(arg1)
             return

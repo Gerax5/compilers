@@ -61,7 +61,9 @@ class ClassManager:
         Animal.name    → var_Animal_name
         Persona.age    → var_Persona_age
         """
-        return f"var_{class_name}_{field}"
+        raw_field = field.replace("var_", "").replace("tmp_", "")
+        raw_class = class_name.replace("var_", "").replace("tmp_", "")
+        return f"var_{raw_class}_{raw_field}"
 
     # -------------------------
     #  RESOLVE METHOD LABEL
