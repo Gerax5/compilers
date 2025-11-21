@@ -28,7 +28,6 @@ class MIPSGenerator:
         self.classman = ClassManager()
         self.printer = MipsPrinter(self)
         self.arrayutil = ArrayUtil(self)
-        
 
     def _is_string_literal(self, x):
         return isinstance(x, str) and len(x) >= 2 and x[0] == '"' and x[-1] == '"'
@@ -68,7 +67,7 @@ class MIPSGenerator:
             parts += self.concat_temps[a]  # expandir
         else:
             if self.funcman.is_param(a):
-                param_reg = self.funcman.resolve_var(a) 
+                param_reg = self.funcman.resolve_var(a)
                 parts.append(param_reg)
             else:
                 parts.append(a)
@@ -77,7 +76,7 @@ class MIPSGenerator:
             parts += self.concat_temps[b]
         else:
             if self.funcman.is_param(b):
-                param_reg = self.funcman.resolve_var(b) 
+                param_reg = self.funcman.resolve_var(b)
                 parts.append(param_reg)
             else:
                 parts.append(b)
@@ -91,10 +90,13 @@ class MIPSGenerator:
 
         if self._is_string_literal(x):
             return True
-        
+
         clean_x = x.replace("var_", "").replace("tmp_", "")
 
-        if clean_x in self.symbol_table and self.symbol_table[clean_x].ty == Type.STRING:
+        if (
+            clean_x in self.symbol_table
+            and self.symbol_table[clean_x].ty == Type.STRING
+        ):
             return True
 
         if x in self.types and self.types[x] == "string":
@@ -105,16 +107,16 @@ class MIPSGenerator:
     def _load(self, reg, val):
         if isinstance(val, int):
             return [f"\tli {reg}, {val}"]
-        
+
         if self.funcman.is_param(val):
-            param_reg = self.funcman.resolve_var(val) 
+            param_reg = self.funcman.resolve_var(val)
             return [f"\tlw {reg}, {param_reg}"]
-        
+
         return [f"\tlw {reg}, {val}"]
 
     def getVariable(self, value):
         return self.strings[value]
-    
+
     def _is_array(self, t):
         return isinstance(t, ArrayType)
 
@@ -129,7 +131,7 @@ class MIPSGenerator:
                 isFunction = True
 
             if q["op"] == "class":
-                inClass = q["result"]   # Animal
+                inClass = q["result"]  # Animal
                 self.class_quads.append(q)
                 continue
 
@@ -169,14 +171,13 @@ class MIPSGenerator:
 
                 if key == "result" and q["op"] == "endfunc":
                     continue  # endfunc
- 
+
                 if key == "result" and q["op"] == "label" and val.startswith("func_"):
                     inFunction = val
                     continue  # función
-                    
+
                 if q["op"] == "call":
                     continue  # llamada
-
 
                 if self._is_string_literal(val):
                     if val not in self.strings:
@@ -185,7 +186,10 @@ class MIPSGenerator:
                     continue
 
                 elif isinstance(val, str):
-                    if not ((val in self.symbol_table) and (self.symbol_table[val].ty == Type.STRING)):
+                    if not (
+                        (val in self.symbol_table)
+                        and (self.symbol_table[val].ty == Type.STRING)
+                    ):
                         if inClass:
                             if inFunction:
                                 if q["op"] == "setprop" and q["arg1"] == "this":
@@ -198,9 +202,11 @@ class MIPSGenerator:
                             self.variables.add(f"{inFunction}_{val}")
                         else:
                             self.variables.add(val)
-                elif val in self.symbol_table and self._is_array(self.symbol_table.get(val).ty):
+                elif val in self.symbol_table and self._is_array(
+                    self.symbol_table.get(val).ty
+                ):
                     self.variables.add(val)
-        
+
         # 2) Sección de datos
         self.output.append(".data")
 
@@ -263,7 +269,7 @@ class MIPSGenerator:
         op = q["op"]
         arg1 = q["arg1"]
         arg2 = q["arg2"]
-        res  = q["result"]
+        res = q["result"]
 
         # Sanear nombres (solo para strings/vars, NO para enteros)
         if isinstance(res, str):
@@ -275,14 +281,13 @@ class MIPSGenerator:
             arg2 = self._safe_var(arg2)
 
         # ---------- ASIGNACIÓN ----------
-        if op == "=":     
+        if op == "=":
 
-            print("HOLA", arg1, arg2, res, self.symbol_table)      
-            
+            print("HOLA", arg1, arg2, res, self.symbol_table)
+
             if self._is_string_literal(arg1):
                 self.concat_temps[res] = [arg1]
                 return
-
 
             if self.is_string(arg1):
                 cont = True
@@ -297,14 +302,16 @@ class MIPSGenerator:
                     return
 
             clean_res = res.replace("var_", "").replace("tmp_", "")
-            if clean_res in self.symbol_table and "[]" in str(self.symbol_table[clean_res].ty):
+            if clean_res in self.symbol_table and "[]" in str(
+                self.symbol_table[clean_res].ty
+            ):
                 self.arrays[clean_res] = arg1.replace("var_", "").replace("tmp_", "")
                 self.output += [
                     f"\tlw $t0, {arg1}",
                     f"\tsw $t0, {res}",
                 ]
                 return
-            
+
             if isinstance(arg1, int):
                 self.output += [
                     f"\tli $t0, {arg1}",
@@ -315,7 +322,6 @@ class MIPSGenerator:
                     f"\tlw $t0, {arg1}",
                     f"\tsw $t0, {res}",
                 ]
-
 
         # ---------- SUMA ----------
         elif op == "+":
@@ -369,7 +375,7 @@ class MIPSGenerator:
                 f"\tsw $t2, {res}",
             ]
 
-        elif op == "<":        # MENOR QUE
+        elif op == "<":  # MENOR QUE
             self.output += self._load("$t0", arg1)
             self.output += self._load("$t1", arg2)
             # t2 = (arg1 < arg2)
@@ -377,7 +383,7 @@ class MIPSGenerator:
                 f"\tslt $t2, $t0, $t1",
                 f"\tsw $t2, {res}",
             ]
-        elif op == ">=":       # MAYOR O IGUAL
+        elif op == ">=":  # MAYOR O IGUAL
             self.output += self._load("$t0", arg1)
             self.output += self._load("$t1", arg2)
             # t2 = !(arg1 < arg2)
@@ -389,7 +395,7 @@ class MIPSGenerator:
                 f"\tsw $t2, {res}",
             ]
 
-        elif op == "<=":       # MENOR O IGUAL
+        elif op == "<=":  # MENOR O IGUAL
             self.output += self._load("$t0", arg1)
             self.output += self._load("$t1", arg2)
             # t2 = !(arg1 > arg2)
@@ -401,7 +407,7 @@ class MIPSGenerator:
                 f"\tsw $t2, {res}",
             ]
 
-        elif op == "==":       # IGUALDAD
+        elif op == "==":  # IGUALDAD
             self.output += self._load("$t0", arg1)
             self.output += self._load("$t1", arg2)
             # t2 = (arg1 == arg2)
@@ -413,7 +419,7 @@ class MIPSGenerator:
                 f"\tsw $t2, {res}",
             ]
 
-        elif op == "!=":       # DIFERENTE
+        elif op == "!=":  # DIFERENTE
             self.output += self._load("$t0", arg1)
             self.output += self._load("$t1", arg2)
             # t2 = (arg1 != arg2)
@@ -439,7 +445,6 @@ class MIPSGenerator:
             self.output.append(f"\tbne $t0, $zero, {raw}")
             return
 
-
         elif op == "goto":
             raw = res.replace("var_", "").replace("tmp_", "")
             self.output.append(f"\tj {raw}")
@@ -451,7 +456,7 @@ class MIPSGenerator:
                 self.classman.add_method(method_name)
                 self.output += self.funcman.begin_function(res)
                 return
-            
+
             self.output += self.funcman.begin_function(res)
             return
 
@@ -473,19 +478,16 @@ class MIPSGenerator:
                 f"\tsw $t0, {dest}",
             ]
             return
-        
+
         if op == "setprop":
-            inst = arg1           # this
+            inst = arg1  # this
             field = arg2
             value = res
 
             class_name = self.classman.current_class
             storage = self.classman.resolve_field(class_name, field)
 
-            self.output += [
-                f"\tlw $t0, {value}",
-                f"\tsw $t0, {storage}"
-            ]
+            self.output += [f"\tlw $t0, {value}", f"\tsw $t0, {storage}"]
             return
 
         if op == "getprop":
@@ -496,16 +498,13 @@ class MIPSGenerator:
             class_name = self.classman.current_class
             storage = self.classman.resolve_field(class_name, field)
 
-            self.output += [
-                f"\tlw $t0, {storage}",
-                f"\tsw $t0, {dest}"
-            ]
+            self.output += [f"\tlw $t0, {storage}", f"\tsw $t0, {dest}"]
             return
 
         if op == "getmethod":
             inst = arg1.replace("var_", "").replace("tmp_", "")
-            method = arg2.replace("var_", "").replace("tmp_", "")       # speak
-            dest = res          # t1
+            method = arg2.replace("var_", "").replace("tmp_", "")  # speak
+            dest = res  # t1
 
             # 1. Obtener clase de la instancia
             class_name = self.classman.get_instance_class(dest)
@@ -529,13 +528,13 @@ class MIPSGenerator:
             self.classman.map_instance(obj, class_name)
 
             raw = class_name.replace("var_", "").replace("tmp_", "")
-            size =  self.classman.class_sizes[raw]   # por ejemplo {"Animal": 4}
-            
+            size = self.classman.class_sizes[raw]  # por ejemplo {"Animal": 4}
+
             self.output += [
-                "\tli $v0, 9",             # sbrk
-                f"\tli $a0, {size}",       # bytes
-                "\tsyscall",               # $v0 = ptr
-                f"\tsw $v0, {obj}",        # guardar el puntero en t1
+                "\tli $v0, 9",  # sbrk
+                f"\tli $a0, {size}",  # bytes
+                "\tsyscall",  # $v0 = ptr
+                f"\tsw $v0, {obj}",  # guardar el puntero en t1
             ]
 
             if "constructor" in self.classman.classes[class_name]["methods"]:
@@ -543,18 +542,16 @@ class MIPSGenerator:
                 ctor = f"func_{class_name}_constructor"
 
                 self.output += [
-                    f"\tlw $a0, {obj}",        # this
-                    f"\tjal {ctor}"            # constructor()
+                    f"\tlw $a0, {obj}",  # this
+                    f"\tjal {ctor}",  # constructor()
                 ]
             return
-
-
 
         if op == "param":
             self.funcman.add_param(self.funcman.current_function, res)
             self.output += self.funcman.save_params_to_memory()
             return
-        
+
         if op == "call_param":
             self.pending_params.append(arg1)
             return
@@ -562,18 +559,18 @@ class MIPSGenerator:
         if op == "return":
 
             if self._is_string_literal(arg1):
-                label = self.strings[arg1]   # ejemplo: "HOLA" → str0
+                label = self.strings[arg1]  # ejemplo: "HOLA" → str0
                 self.output.append(f"\tla $v0, {label}")
                 self.output += self.funcman.end_function()
                 return
-            
+
             # if self.is_string(arg1):
             #     # Debes asegurar que 'arg1' tiene un label generado por concat
             #     label = self.strutil.concat_to_mips(self, arg1)
             #     self.output.append(f"\tla $v0, {label}")
             #     self.output += self.funcman.end_function()
             #     return
-            
+
             reg = self.funcman.resolve_var(arg1)
 
             if reg.startswith("$"):
@@ -586,7 +583,7 @@ class MIPSGenerator:
 
         if op == "call":
             func_name = arg1.replace("var_", "func_")
-            n = arg2   # number of params
+            n = arg2  # number of params
 
             raw = func_name.replace("func_", "")
 
@@ -631,7 +628,7 @@ class MIPSGenerator:
                 self.types[res] = "string"
                 self.concat_temps[res] = [("runtime", res)]
             return
-        
+
         if op == "class":
             self.classman.begin_class(res)
             return
