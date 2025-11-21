@@ -20,6 +20,7 @@ export interface AnalyzeResp {
   globals: string[];
   symtab?: ScopeNode;
   tac?: Quad[];
+  mips?: string;
 }
 
 export type SymEntry =

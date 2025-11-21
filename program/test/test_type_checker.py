@@ -1,8 +1,8 @@
 import os, sys
-from antlr4 import InputStream, CommonTokenStream, ParseTreeWalker # type: ignore
+from antlr4 import InputStream, CommonTokenStream, ParseTreeWalker  # type: ignore
 
 # Asegura que Python vea los módulos en /program
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from CompiscriptLexer import CompiscriptLexer
 from CompiscriptParser import CompiscriptParser
@@ -17,10 +17,11 @@ from src.utils.Types import Type, ArrayType
 def parse_src(src: str):
     inp = InputStream(src)
     lex = CompiscriptLexer(inp)
-    ts  = CommonTokenStream(lex)
+    ts = CommonTokenStream(lex)
     parser = CompiscriptParser(ts)
     tree = parser.program()
     return parser, tree
+
 
 def build_symbols(tree):
     errors = Error()
@@ -28,16 +29,19 @@ def build_symbols(tree):
     ParseTreeWalker().walk(stb, tree)
     return stb, errors
 
+
 def type_check(stb, errors, parser, tree):
     tc = TypeChecker(stb.scopes, stb.globalScope, errors, parser)
     tc.visit(tree)
     return tc, errors
+
 
 def errors_contain(errors, substr):
     return any(substr in e for e in errors.errors)
 
 
 # ---------- tests ----------
+
 
 def test_return_ok_with_identifier():
     src = """
@@ -47,9 +51,10 @@ def test_return_ok_with_identifier():
     """
     parser, tree = parse_src(src)
     stb, errors = build_symbols(tree)
-    tc, errors  = type_check(stb, errors, parser, tree)
+    tc, errors = type_check(stb, errors, parser, tree)
 
     assert not errors.errors
+
 
 def test_return_type_mismatch_string_in_int_fn():
     src = """
@@ -59,10 +64,11 @@ def test_return_type_mismatch_string_in_int_fn():
     """
     parser, tree = parse_src(src)
     stb, errors = build_symbols(tree)
-    tc, errors  = type_check(stb, errors, parser, tree)
+    tc, errors = type_check(stb, errors, parser, tree)
 
     assert errors_contain(errors, "return: esperado Type.INT")
     assert errors_contain(errors, "STRING")
+
 
 def test_additive_numeric_promotes_to_float():
     src = """
@@ -70,9 +76,10 @@ def test_additive_numeric_promotes_to_float():
     """
     parser, tree = parse_src(src)
     stb, errors = build_symbols(tree)
-    tc, errors  = type_check(stb, errors, parser, tree)
+    tc, errors = type_check(stb, errors, parser, tree)
 
-    assert not errors.errors 
+    assert not errors.errors
+
 
 def test_additive_string_concat_is_string():
     src = """
@@ -80,9 +87,10 @@ def test_additive_string_concat_is_string():
     """
     parser, tree = parse_src(src)
     stb, errors = build_symbols(tree)
-    tc, errors  = type_check(stb, errors, parser, tree)
+    tc, errors = type_check(stb, errors, parser, tree)
 
     assert not errors.errors
+
 
 def test_var_assignment_type_mismatch():
     src = """
@@ -90,9 +98,10 @@ def test_var_assignment_type_mismatch():
     """
     parser, tree = parse_src(src)
     stb, errors = build_symbols(tree)
-    tc, errors  = type_check(stb, errors, parser, tree)
+    tc, errors = type_check(stb, errors, parser, tree)
 
     assert errors_contain(errors, "No se puede asignar Type.STRING a Type.INT en 'a'")
+
 
 def test_const_cannot_be_assigned():
     src = """
@@ -103,9 +112,10 @@ def test_const_cannot_be_assigned():
     """
     parser, tree = parse_src(src)
     stb, errors = build_symbols(tree)
-    tc, errors  = type_check(stb, errors, parser, tree)
+    tc, errors = type_check(stb, errors, parser, tree)
 
     assert errors_contain(errors, "No se puede asignar a const 'x'")
+
 
 def test_undeclared_identifier_in_return():
     src = """
@@ -113,9 +123,10 @@ def test_undeclared_identifier_in_return():
     """
     parser, tree = parse_src(src)
     stb, errors = build_symbols(tree)
-    tc, errors  = type_check(stb, errors, parser, tree)
+    tc, errors = type_check(stb, errors, parser, tree)
 
     assert errors_contain(errors, "'y' no declarado")
+
 
 def test_array_literal_and_annotation_ok():
     src = """
@@ -124,9 +135,10 @@ def test_array_literal_and_annotation_ok():
     """
     parser, tree = parse_src(src)
     stb, errors = build_symbols(tree)
-    tc, errors  = type_check(stb, errors, parser, tree)
+    tc, errors = type_check(stb, errors, parser, tree)
 
     assert not errors.errors
+
 
 def test_class_declaration():
     src = """
@@ -136,9 +148,10 @@ def test_class_declaration():
     """
     parser, tree = parse_src(src)
     stb, errors = build_symbols(tree)
-    tc, errors  = type_check(stb, errors, parser, tree)
+    tc, errors = type_check(stb, errors, parser, tree)
 
     assert not errors.errors
+
 
 def test_class_this_reference():
     src = """
@@ -151,9 +164,10 @@ def test_class_this_reference():
     """
     parser, tree = parse_src(src)
     stb, errors = build_symbols(tree)
-    tc, errors  = type_check(stb, errors, parser, tree)
+    tc, errors = type_check(stb, errors, parser, tree)
 
     assert not errors.errors
+
 
 def test_class_this_outside_class():
     src = """
@@ -163,9 +177,10 @@ def test_class_this_outside_class():
     """
     parser, tree = parse_src(src)
     stb, errors = build_symbols(tree)
-    tc, errors  = type_check(stb, errors, parser, tree)
+    tc, errors = type_check(stb, errors, parser, tree)
 
     assert errors_contain(errors, "Uso de 'this' fuera de una clase")
+
 
 def test_call_function_with_string_argument():
     src = """
@@ -177,9 +192,12 @@ def test_call_function_with_string_argument():
     """
     parser, tree = parse_src(src)
     stb, errors = build_symbols(tree)
-    tc, errors  = type_check(stb, errors, parser, tree)
+    tc, errors = type_check(stb, errors, parser, tree)
 
-    assert errors_contain(errors, "Arg 1 de 'f': esperado Type.INT, recibió Type.STRING")
+    assert errors_contain(
+        errors, "Arg 1 de 'f': esperado Type.INT, recibió Type.STRING"
+    )
+
 
 def test_call_function_with_no_arguments():
     src = """
@@ -191,9 +209,10 @@ def test_call_function_with_no_arguments():
     """
     parser, tree = parse_src(src)
     stb, errors = build_symbols(tree)
-    tc, errors  = type_check(stb, errors, parser, tree)
+    tc, errors = type_check(stb, errors, parser, tree)
 
     assert errors_contain(errors, "'f' espera 1 args, recibió 0")
+
 
 def test_assignment_variable_function_call_with_diff_return_type():
     src = """
@@ -205,9 +224,10 @@ def test_assignment_variable_function_call_with_diff_return_type():
     """
     parser, tree = parse_src(src)
     stb, errors = build_symbols(tree)
-    tc, errors  = type_check(stb, errors, parser, tree)
+    tc, errors = type_check(stb, errors, parser, tree)
 
     assert errors_contain(errors, "No se puede asignar Type.INT a Type.STRING en 'x'")
+
 
 def test_array_indexing():
     src = """
@@ -217,9 +237,10 @@ def test_array_indexing():
     """
     parser, tree = parse_src(src)
     stb, errors = build_symbols(tree)
-    tc, errors  = type_check(stb, errors, parser, tree)
+    tc, errors = type_check(stb, errors, parser, tree)
 
     assert not errors.errors
+
 
 def test_assignment_array_element():
     src = """
@@ -229,9 +250,12 @@ def test_assignment_array_element():
     """
     parser, tree = parse_src(src)
     stb, errors = build_symbols(tree)
-    tc, errors  = type_check(stb, errors, parser, tree)
+    tc, errors = type_check(stb, errors, parser, tree)
 
-    assert errors_contain(errors, "Asignación incompatible en arreglo: Type.INT = Type.STRING")
+    assert errors_contain(
+        errors, "Asignación incompatible en arreglo: Type.INT = Type.STRING"
+    )
+
 
 def test_class_inheritance():
     src = """
@@ -247,9 +271,10 @@ def test_class_inheritance():
     """
     parser, tree = parse_src(src)
     stb, errors = build_symbols(tree)
-    tc, errors  = type_check(stb, errors, parser, tree)
+    tc, errors = type_check(stb, errors, parser, tree)
 
     assert not errors.errors
+
 
 def test_initialization_class_instance():
     src = """
@@ -261,9 +286,10 @@ def test_initialization_class_instance():
     """
     parser, tree = parse_src(src)
     stb, errors = build_symbols(tree)
-    tc, errors  = type_check(stb, errors, parser, tree)
+    tc, errors = type_check(stb, errors, parser, tree)
 
     assert not errors.errors
+
 
 def test_initialization_class_instance_type_mismatch():
     src = """
@@ -276,9 +302,12 @@ def test_initialization_class_instance_type_mismatch():
     """
     parser, tree = parse_src(src)
     stb, errors = build_symbols(tree)
-    tc, errors  = type_check(stb, errors, parser, tree)
+    tc, errors = type_check(stb, errors, parser, tree)
 
-    assert errors_contain(errors, "Asignación incompatible a 'x': Type.INT = Type.STRING")
+    assert errors_contain(
+        errors, "Asignación incompatible a 'x': Type.INT = Type.STRING"
+    )
+
 
 def test_initialization_class_with_no_args():
     src = """
@@ -293,9 +322,10 @@ def test_initialization_class_with_no_args():
     """
     parser, tree = parse_src(src)
     stb, errors = build_symbols(tree)
-    tc, errors  = type_check(stb, errors, parser, tree)
+    tc, errors = type_check(stb, errors, parser, tree)
 
     assert errors_contain(errors, "constructor de C espera 1 args, recibió 0")
+
 
 def test_simple_bool_expr():
     src = """
@@ -305,9 +335,10 @@ def test_simple_bool_expr():
     """
     parser, tree = parse_src(src)
     stb, errors = build_symbols(tree)
-    tc, errors  = type_check(stb, errors, parser, tree)
+    tc, errors = type_check(stb, errors, parser, tree)
 
     assert not errors.errors
+
 
 def test_assignment_bool_var():
     src = """
@@ -315,7 +346,7 @@ def test_assignment_bool_var():
     """
     parser, tree = parse_src(src)
     stb, errors = build_symbols(tree)
-    tc, errors  = type_check(stb, errors, parser, tree)
+    tc, errors = type_check(stb, errors, parser, tree)
 
     assert not errors.errors
 
@@ -329,6 +360,7 @@ def test_equiality_expr():
 
     assert not errors.errors
 
+
 def test_logical_and_expr():
     src = """
     function f(x: boolean, y: boolean): boolean {
@@ -337,9 +369,10 @@ def test_logical_and_expr():
     """
     parser, tree = parse_src(src)
     stb, errors = build_symbols(tree)
-    tc, errors  = type_check(stb, errors, parser, tree)
+    tc, errors = type_check(stb, errors, parser, tree)
 
     assert not errors.errors
+
 
 def test_logical_or_expr():
     src = """
@@ -349,9 +382,10 @@ def test_logical_or_expr():
     """
     parser, tree = parse_src(src)
     stb, errors = build_symbols(tree)
-    tc, errors  = type_check(stb, errors, parser, tree)
+    tc, errors = type_check(stb, errors, parser, tree)
 
     assert not errors.errors
+
 
 def test_logical_not_expr():
     src = """
@@ -361,45 +395,51 @@ def test_logical_not_expr():
     """
     parser, tree = parse_src(src)
     stb, errors = build_symbols(tree)
-    tc, errors  = type_check(stb, errors, parser, tree)
+    tc, errors = type_check(stb, errors, parser, tree)
 
     assert not errors.errors
+
 
 #  visitMultiplicativeExpr
 def test_mul_int_int():
     src = "function f(): integer { return 2 * 3; }"
     parser, tree = parse_src(src)
     stb, errors = build_symbols(tree)
-    tc, errors  = type_check(stb, errors, parser, tree)
+    tc, errors = type_check(stb, errors, parser, tree)
     assert not errors.errors  # 2*3 es int -> OK
+
 
 def test_mul_int_float_promotes_to_float():
     src = "function f(): float { return 2 * 3.5; }"
     parser, tree = parse_src(src)
     stb, errors = build_symbols(tree)
-    tc, errors  = type_check(stb, errors, parser, tree)
+    tc, errors = type_check(stb, errors, parser, tree)
     assert not errors.errors  # promoción a float -> OK
+
 
 def test_div_int_int_is_float():
     src = "function f(): float { return 5 / 2; }"
     parser, tree = parse_src(src)
     stb, errors = build_symbols(tree)
-    tc, errors  = type_check(stb, errors, parser, tree)
+    tc, errors = type_check(stb, errors, parser, tree)
     assert not errors.errors  # tu regla hace / -> float
+
 
 def test_mod_int_int_ok():
     src = "function f(): integer { return 5 % 2; }"
     parser, tree = parse_src(src)
     stb, errors = build_symbols(tree)
-    tc, errors  = type_check(stb, errors, parser, tree)
+    tc, errors = type_check(stb, errors, parser, tree)
     assert not errors.errors  # % entre enteros -> OK
+
 
 def test_mod_with_float_is_error():
     src = "function f(): integer { return 5.0 % 2; }"
     parser, tree = parse_src(src)
     stb, errors = build_symbols(tree)
-    tc, errors  = type_check(stb, errors, parser, tree)
+    tc, errors = type_check(stb, errors, parser, tree)
     assert any("% requiere enteros" in str(e) for e in errors.errors)
+
 
 # visitTernaryExpr
 def test_ternary_basic_int_ok():
@@ -410,8 +450,9 @@ def test_ternary_basic_int_ok():
     """
     parser, tree = parse_src(src)
     stb, errors = build_symbols(tree)
-    tc, errors  = type_check(stb, errors, parser, tree)
+    tc, errors = type_check(stb, errors, parser, tree)
     assert not errors.errors
+
 
 def test_ternary_numeric_promotion_to_float():
     src = """
@@ -421,8 +462,9 @@ def test_ternary_numeric_promotion_to_float():
     """
     parser, tree = parse_src(src)
     stb, errors = build_symbols(tree)
-    tc, errors  = type_check(stb, errors, parser, tree)
+    tc, errors = type_check(stb, errors, parser, tree)
     assert not errors.errors
+
 
 def test_ternary_condition_not_bool_is_error():
     src = """
@@ -432,8 +474,9 @@ def test_ternary_condition_not_bool_is_error():
     """
     parser, tree = parse_src(src)
     stb, errors = build_symbols(tree)
-    tc, errors  = type_check(stb, errors, parser, tree)
+    tc, errors = type_check(stb, errors, parser, tree)
     assert errors_contain(errors, "Se esperaba bool")
+
 
 def test_ternary_incompatible_branches_is_error():
     src = """
@@ -443,10 +486,12 @@ def test_ternary_incompatible_branches_is_error():
     """
     parser, tree = parse_src(src)
     stb, errors = build_symbols(tree)
-    tc, errors  = type_check(stb, errors, parser, tree)
+    tc, errors = type_check(stb, errors, parser, tree)
     assert errors_contain(errors, "Tipos incompatibles en ternario")
 
+
 # visitExprNoAssign
+
 
 def test_expr_no_assign_passthrough_additive():
     src = """
@@ -456,10 +501,12 @@ def test_expr_no_assign_passthrough_additive():
     """
     parser, tree = parse_src(src)
     stb, errors = build_symbols(tree)
-    tc, errors  = type_check(stb, errors, parser, tree)
+    tc, errors = type_check(stb, errors, parser, tree)
     assert not errors.errors
 
+
 # visitExpression
+
 
 def test_expression_rule_passthrough_literal():
     src = """
@@ -469,10 +516,12 @@ def test_expression_rule_passthrough_literal():
     """
     parser, tree = parse_src(src)
     stb, errors = build_symbols(tree)
-    tc, errors  = type_check(stb, errors, parser, tree)
+    tc, errors = type_check(stb, errors, parser, tree)
     assert not errors.errors
 
+
 # visitPropertyAssignExpr
+
 
 def test_property_assign_ok():
     src = """
@@ -484,8 +533,11 @@ def test_property_assign_ok():
     """
     parser, tree = parse_src(src)
     stb, errors = build_symbols(tree)
-    tc, errors  = type_check(stb, errors, parser, tree)
-    assert errors_contain(errors, "Variable 'c' de tipo clase 'C' requiere inicialización con 'new C()'")
+    tc, errors = type_check(stb, errors, parser, tree)
+    assert errors_contain(
+        errors, "Variable 'c' de tipo clase 'C' requiere inicialización con 'new C()'"
+    )
+
 
 def test_property_assign_wrong_type_error():
     src = """
@@ -497,8 +549,11 @@ def test_property_assign_wrong_type_error():
     """
     parser, tree = parse_src(src)
     stb, errors = build_symbols(tree)
-    tc, errors  = type_check(stb, errors, parser, tree)
-    assert errors_contain(errors, "Asignación incompatible") or errors_contain(errors, "incompatible")
+    tc, errors = type_check(stb, errors, parser, tree)
+    assert errors_contain(errors, "Asignación incompatible") or errors_contain(
+        errors, "incompatible"
+    )
+
 
 def test_property_assign_missing_property_error():
     src = """
@@ -510,10 +565,12 @@ def test_property_assign_missing_property_error():
     """
     parser, tree = parse_src(src)
     stb, errors = build_symbols(tree)
-    tc, errors  = type_check(stb, errors, parser, tree)
+    tc, errors = type_check(stb, errors, parser, tree)
     assert errors_contain(errors, "Propiedad") and errors_contain(errors, "no existe")
 
+
 # visitWhileStatement
+
 
 def test_while_condition_bool_ok():
     src = """
@@ -527,7 +584,7 @@ def test_while_condition_bool_ok():
     """
     parser, tree = parse_src(src)
     stb, errors = build_symbols(tree)
-    tc, errors  = type_check(stb, errors, parser, tree)
+    tc, errors = type_check(stb, errors, parser, tree)
     assert not errors.errors
 
 
@@ -539,10 +596,12 @@ def test_while_condition_not_bool_error():
     """
     parser, tree = parse_src(src)
     stb, errors = build_symbols(tree)
-    tc, errors  = type_check(stb, errors, parser, tree)
+    tc, errors = type_check(stb, errors, parser, tree)
     assert errors_contain(errors, "Se esperaba bool, se obtuvo")
 
+
 # visitDoWhileStatement
+
 
 def test_do_while_condition_bool_ok():
     src = """
@@ -554,7 +613,7 @@ def test_do_while_condition_bool_ok():
     """
     parser, tree = parse_src(src)
     stb, errors = build_symbols(tree)
-    tc, errors  = type_check(stb, errors, parser, tree)
+    tc, errors = type_check(stb, errors, parser, tree)
     assert not errors.errors
 
 
@@ -566,10 +625,12 @@ def test_do_while_condition_not_bool_error():
     """
     parser, tree = parse_src(src)
     stb, errors = build_symbols(tree)
-    tc, errors  = type_check(stb, errors, parser, tree)
+    tc, errors = type_check(stb, errors, parser, tree)
     assert errors_contain(errors, "Se esperaba bool")
 
+
 # visitSwitchStatement
+
 
 def test_switch_condition_bool_ok_and_break_allowed():
     src = """
@@ -584,7 +645,7 @@ def test_switch_condition_bool_ok_and_break_allowed():
     """
     parser, tree = parse_src(src)
     stb, errors = build_symbols(tree)
-    tc, errors  = type_check(stb, errors, parser, tree)
+    tc, errors = type_check(stb, errors, parser, tree)
     assert not errors.errors
 
 
@@ -598,7 +659,7 @@ def test_switch_condition_not_bool_error():
     """
     parser, tree = parse_src(src)
     stb, errors = build_symbols(tree)
-    tc, errors  = type_check(stb, errors, parser, tree)
+    tc, errors = type_check(stb, errors, parser, tree)
     assert errors_contain(errors, "Se esperaba bool")
 
 
@@ -615,10 +676,12 @@ def test_switch_continue_is_error():
     """
     parser, tree = parse_src(src)
     stb, errors = build_symbols(tree)
-    tc, errors  = type_check(stb, errors, parser, tree)
+    tc, errors = type_check(stb, errors, parser, tree)
     assert errors_contain(errors, "'continue' fuera de un bucle")
 
+
 # visitSwitchCase
+
 
 def test_switch_case_expr_bool_ok():
     src = """
@@ -632,7 +695,7 @@ def test_switch_case_expr_bool_ok():
     """
     parser, tree = parse_src(src)
     stb, errors = build_symbols(tree)
-    tc, errors  = type_check(stb, errors, parser, tree)
+    tc, errors = type_check(stb, errors, parser, tree)
     assert not errors.errors
 
 
@@ -649,10 +712,12 @@ def test_switch_case_expr_not_bool_error():
     """
     parser, tree = parse_src(src)
     stb, errors = build_symbols(tree)
-    tc, errors  = type_check(stb, errors, parser, tree)
+    tc, errors = type_check(stb, errors, parser, tree)
     assert errors_contain(errors, "Se esperaba bool")
 
+
 # visitDefaultCase
+
 
 def test_default_case_executes_statements_typechecked():
     src = """
@@ -666,11 +731,12 @@ def test_default_case_executes_statements_typechecked():
     """
     parser, tree = parse_src(src)
     stb, errors = build_symbols(tree)
-    tc, errors  = type_check(stb, errors, parser, tree)
+    tc, errors = type_check(stb, errors, parser, tree)
     assert errors_contain(errors, "Asignación incompatible")
 
 
 # visitTryCatchStatement
+
 
 def test_try_catch_ok():
     src = """
@@ -685,7 +751,7 @@ def test_try_catch_ok():
     """
     parser, tree = parse_src(src)
     stb, errors = build_symbols(tree)
-    tc, errors  = type_check(stb, errors, parser, tree)
+    tc, errors = type_check(stb, errors, parser, tree)
     assert not errors.errors
 
 
@@ -702,29 +768,35 @@ def test_try_catch_type_error_inside_try_is_reported():
     """
     parser, tree = parse_src(src)
     stb, errors = build_symbols(tree)
-    tc, errors  = type_check(stb, errors, parser, tree)
+    tc, errors = type_check(stb, errors, parser, tree)
     assert errors_contain(errors, "Asignación incompatible")
 
+
 # visitExpressionStatement
+
 
 def test_expression_statement_undeclared_identifier_reports_error():
     src = "y;"
     parser, tree = parse_src(src)
     stb, errors = build_symbols(tree)
-    tc, errors  = type_check(stb, errors, parser, tree)
+    tc, errors = type_check(stb, errors, parser, tree)
     assert errors_contain(errors, "'y' no declarado")
 
+
 # visitPrintStatement
+
 
 def test_print_statement_propagates_inner_expr_errors():
     src = "print(1 + true);"
     parser, tree = parse_src(src)
     stb, errors = build_symbols(tree)
-    tc, errors  = type_check(stb, errors, parser, tree)
+    tc, errors = type_check(stb, errors, parser, tree)
     # Debe reportar el error del + inválido dentro de print(...)
     assert any("Operación +" in e and "inválida" in e for e in errors.errors)
 
+
 # visitClassMember
+
 
 def test_class_member_var_and_method_checked():
     src = """
@@ -736,11 +808,12 @@ def test_class_member_var_and_method_checked():
     """
     parser, tree = parse_src(src)
     stb, errors = build_symbols(tree)
-    tc, errors  = type_check(stb, errors, parser, tree)
+    tc, errors = type_check(stb, errors, parser, tree)
     assert not errors.errors
 
 
 # visitTypeAnnotation
+
 
 def test_type_annotation_allows_later_assignment():
     src = """
@@ -749,27 +822,30 @@ def test_type_annotation_allows_later_assignment():
     """
     parser, tree = parse_src(src)
     stb, errors = build_symbols(tree)
-    tc, errors  = type_check(stb, errors, parser, tree)
+    tc, errors = type_check(stb, errors, parser, tree)
     # Asignación válida a variable anotada como integer
     assert not errors.errors
 
+
 # visitInitializer
+
 
 def test_initializer_infers_type_ok():
     src = "let a = 1;"
     parser, tree = parse_src(src)
     stb, errors = build_symbols(tree)
-    tc, errors  = type_check(stb, errors, parser, tree)
+    tc, errors = type_check(stb, errors, parser, tree)
 
     assert not errors.errors
     assert "a" in stb.globalScope.symbols
     assert stb.globalScope.symbols["a"].ty == Type.INT
 
+
 def test_initializer_type_mismatch_fails():
     src = 'let a: integer = "hola";'
     parser, tree = parse_src(src)
     stb, errors = build_symbols(tree)
-    tc, errors  = type_check(stb, errors, parser, tree)
+    tc, errors = type_check(stb, errors, parser, tree)
 
     # Debe coincidir con el wording que ya usas en visitVariableDeclaration
     assert errors_contain(errors, "No se puede asignar Type.STRING a Type.INT en 'a'")
@@ -787,9 +863,13 @@ def test_class_inheritance_and_method_override():
     """
     parser, tree = parse_src(src)
     stb, errors = build_symbols(tree)
-    tc, errors  = type_check(stb, errors, parser, tree)
+    tc, errors = type_check(stb, errors, parser, tree)
 
-    assert errors_contain(errors, "Override inválido de 'm': tipo de parámetro Type.STRING no coincide con Type.INT")
+    assert errors_contain(
+        errors,
+        "Override inválido de 'm': tipo de parámetro Type.STRING no coincide con Type.INT",
+    )
+
 
 def test_class_inheritance_and_method_override_error():
     src = """
@@ -803,9 +883,13 @@ def test_class_inheritance_and_method_override_error():
     """
     parser, tree = parse_src(src)
     stb, errors = build_symbols(tree)
-    tc, errors  = type_check(stb, errors, parser, tree)
+    tc, errors = type_check(stb, errors, parser, tree)
 
-    assert errors_contain(errors, "Override inválido de 'm': tipo de retorno Type.STRING no coincide con Type.VOID")
+    assert errors_contain(
+        errors,
+        "Override inválido de 'm': tipo de retorno Type.STRING no coincide con Type.VOID",
+    )
+
 
 def test_class_inheritance_and_method_override_ok():
     src = """
@@ -821,7 +905,7 @@ def test_class_inheritance_and_method_override_ok():
     """
     parser, tree = parse_src(src)
     stb, errors = build_symbols(tree)
-    tc, errors  = type_check(stb, errors, parser, tree)
+    tc, errors = type_check(stb, errors, parser, tree)
 
     assert not errors.errors
 
@@ -832,9 +916,13 @@ def test_array_initialization_empty_without_annotation_is_error():
     """
     parser, tree = parse_src(src)
     stb, errors = build_symbols(tree)
-    tc, errors  = type_check(stb, errors, parser, tree)
+    tc, errors = type_check(stb, errors, parser, tree)
 
-    assert errors_contain(errors, "Variable 'a': no se puede inferir el tipo a partir de un arreglo vacío, por favor agrega una anotación de tipo")
+    assert errors_contain(
+        errors,
+        "Variable 'a': no se puede inferir el tipo a partir de un arreglo vacío, por favor agrega una anotación de tipo",
+    )
+
 
 def test_array_initialization_with_multiple_types_is_error():
     src = """
@@ -842,9 +930,12 @@ def test_array_initialization_with_multiple_types_is_error():
     """
     parser, tree = parse_src(src)
     stb, errors = build_symbols(tree)
-    tc, errors  = type_check(stb, errors, parser, tree)
+    tc, errors = type_check(stb, errors, parser, tree)
 
-    assert errors_contain(errors, "Tipos incompatibles en arreglo: Type.FLOAT y Type.STRING")
+    assert errors_contain(
+        errors, "Tipos incompatibles en arreglo: Type.FLOAT y Type.STRING"
+    )
+
 
 def test_dead_code_after_return_is_reported():
     src = """
@@ -855,6 +946,6 @@ def test_dead_code_after_return_is_reported():
     """
     parser, tree = parse_src(src)
     stb, errors = build_symbols(tree)
-    tc, errors  = type_check(stb, errors, parser, tree)
+    tc, errors = type_check(stb, errors, parser, tree)
 
     assert errors_contain(errors, "Se detectó código inalcanzable (código muerto)")

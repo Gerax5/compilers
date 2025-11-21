@@ -13,7 +13,6 @@ class FunctionManager:
         self.current_function = name
         self.params[name] = []
         self.localVarName[name] = {}
-        self.locals[name] = set()
         self.param_index = 0
         return [
             f"{classname}{name}:",
@@ -22,6 +21,21 @@ class FunctionManager:
             "\tsw $fp, 0($sp)",
             "\tmove $fp, $sp"
         ]
+
+    def add_variable(self, name, func):
+
+        """
+        Registra una variable local en la función actual.
+        """
+        if func not in self.locals:
+            self.locals[func] = {}
+
+        raw_name = name.replace("var_", "").replace("tmp_", "")
+
+        storage_name = f"var_{func}_{raw_name}"
+
+        self.locals[func][name] = storage_name
+
 
     # ------------------------------------
     #  REGISTER PARAM
@@ -77,8 +91,14 @@ class FunctionManager:
         #     idx = self.params[func].index(name)
         #     return f"$a{idx}"
 
+        print("LOCALLLLLL", self.localVarName)
+
         if func and name in self.localVarName[func]:
             return self.localVarName[func][name]
+
+        # if func and name in self.locals[func]:
+        #     print("ENTRO ACAAAAA")
+        #     return self.locals[func][name]
         
         return name  # normal variable (en .data)
 

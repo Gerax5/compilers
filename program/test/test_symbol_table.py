@@ -1,7 +1,8 @@
 # tests/test_symbol_table.py
 import os
 import sys
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from antlr4 import InputStream, CommonTokenStream, ParseTreeWalker
 
 # Ajusta estos imports a tu layout real
@@ -10,6 +11,7 @@ from CompiscriptParser import CompiscriptParser
 from src.utils.Errors import Error
 from src.symbolTable.SymbolTableBuilder import SymbolTableBuilder
 from src.utils.Types import Type, ArrayType
+
 
 def parse_and_build(src: str):
     input_stream = InputStream(src)
@@ -23,13 +25,16 @@ def parse_and_build(src: str):
     ParseTreeWalker().walk(stb, tree)
     return stb, errors, parser, tree
 
+
 def find_scope_of_ctx(stb, ctx_name: str):
     for ctx, sc in stb.scopes.items():
         if ctx.__class__.__name__ == ctx_name:
             return sc, ctx
     return None, None
 
+
 # TEST
+
 
 def test_const_and_var_declared():
     src = """
@@ -42,13 +47,14 @@ def test_const_and_var_declared():
     assert "greeting" in stb.globalScope.symbols
 
     pi = stb.globalScope.symbols["PI"]
-    g  = stb.globalScope.symbols["greeting"]
+    g = stb.globalScope.symbols["greeting"]
 
     assert getattr(pi, "is_const", True) is True
     assert pi.ty == Type.INT
     assert g.ty == Type.STRING
 
     assert len(errors.errors) == 0
+
 
 def test_redeclaration_reports_errors():
     src = """
@@ -60,6 +66,7 @@ def test_redeclaration_reports_errors():
     _, errors, *_ = parse_and_build(src)
     assert any("Constant 'PI' redeclared" in e for e in errors.errors)
     assert any("Variable 'a' redeclared" in e for e in errors.errors)
+
 
 def test_function_decl_params_and_scope():
     src = """
@@ -82,6 +89,7 @@ def test_function_decl_params_and_scope():
     assert "x" in fscope.symbols and "y" in fscope.symbols
     assert len(errors.errors) == 0
 
+
 def test_class_decl_creates_class_scope_and_this():
     src = """
         class Animal {
@@ -102,6 +110,7 @@ def test_class_decl_creates_class_scope_and_this():
     assert "this" in class_scope.symbols
     assert "name" in class_scope.symbols
 
+
 def test_block_creates_scope_and_local_var_not_global():
     src = """
         {
@@ -120,6 +129,7 @@ def test_block_creates_scope_and_local_var_not_global():
     assert found
     assert len(errors.errors) == 0
 
+
 def test_foreach_creates_scope_and_iterator_symbol():
     src = """
         let numbers: integer[] = [1,2,3];
@@ -130,8 +140,9 @@ def test_foreach_creates_scope_and_iterator_symbol():
     stb, errors, *_ = parse_and_build(src)
     fe_scope, _ = find_scope_of_ctx(stb, "ForeachStatementContext")
     assert fe_scope is not None
-    assert "n" in fe_scope.symbols 
+    assert "n" in fe_scope.symbols
     assert len(errors.errors) == 0
+
 
 def test_for_creates_scope():
     src = """
@@ -144,6 +155,7 @@ def test_for_creates_scope():
     assert for_scope is not None
     assert len(errors.errors) == 0
 
+
 def test_while_and_do_while_balance_depth():
     src = """
         let x: integer = 0;
@@ -154,6 +166,7 @@ def test_while_and_do_while_balance_depth():
     # Al finalizar el walk, loop_depth vuelve a 0
     assert stb.loop_depth == 0
     assert len(errors.errors) == 0
+
 
 def test_array_type_annotation_1d_and_2d():
     src = """

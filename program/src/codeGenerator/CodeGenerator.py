@@ -4,9 +4,10 @@ from src.utils.Scope import VarSymbol, Type, ClassSymbol, FuncSymbol, Scope
 from src.utils.Types import Type, ArrayType
 from CompiscriptListener import CompiscriptListener
 from CompiscriptParser import CompiscriptParser
-from antlr4.tree.Tree import TerminalNode # type: ignore
+from antlr4.tree.Tree import TerminalNode  # type: ignore
 
 from CompiscriptVisitor import CompiscriptVisitor
+
 
 class CodeGenerator(CompiscriptVisitor):
     def __init__(self, temp_manager, symbol_table):
@@ -20,25 +21,24 @@ class CodeGenerator(CompiscriptVisitor):
         self.loop_stack = []
         self.switch_stack = []
 
-    def emit(self, op, arg1, arg2, result,  **extra):
+    def emit(self, op, arg1, arg2, result, **extra):
         quad = {
             "id": self.counter,
             "op": op,
             "arg1": arg1,
             "arg2": arg2,
-            "result": result
+            "result": result,
         }
         quad.update(extra)
 
         self.quadruples.append(quad)
         self.counter += 1
         return quad["id"]
-    
+
     def new_label(self, hint="L"):
         self.label_counter += 1
         return f"{hint}{self.label_counter}"
 
-    
     # EXPR
     def visitAdditiveExpr(self, ctx):
         if ctx.getChildCount() == 1:
@@ -69,7 +69,7 @@ class CodeGenerator(CompiscriptVisitor):
 
         left = self.visit(ctx.getChild(0))
         right = self.visit(ctx.getChild(2))
-        op = ctx.getChild(1).getText()  
+        op = ctx.getChild(1).getText()
 
         temp = self.temp_manager.new_temp()
         self.emit(op, left, right, temp)
@@ -131,7 +131,7 @@ class CodeGenerator(CompiscriptVisitor):
         if ctx.getChildCount() == 1:
             return self.visit(ctx.getChild(0))
 
-        op = ctx.getChild(0).getText()   
+        op = ctx.getChild(0).getText()
         expr_val = self.visit(ctx.getChild(1))
 
         temp = self.temp_manager.new_temp()
@@ -152,7 +152,7 @@ class CodeGenerator(CompiscriptVisitor):
         cond_place = self.visit(ctx.expression())
 
         else_label = f"L{len(self.quadruples)}_else"
-        end_label  = f"L{len(self.quadruples)}_end"
+        end_label = f"L{len(self.quadruples)}_end"
 
         self.emit("ifFalse", cond_place, None, else_label)
 
@@ -163,14 +163,13 @@ class CodeGenerator(CompiscriptVisitor):
             self.emit("goto", None, None, end_label)
 
         self.emit("label", None, None, else_label)
-        if ctx.block(1):   
+        if ctx.block(1):
             self.visit(ctx.block(1))
 
         if ctx.block(1):
             self.emit("label", None, None, end_label)
 
         return None
-
 
     # FUNCTION
     def visitFunctionDeclaration(self, ctx):
@@ -201,7 +200,6 @@ class CodeGenerator(CompiscriptVisitor):
 
         return None
 
-
     def visitReturnStatement(self, ctx):
         expr = getattr(ctx, "expression", None) and ctx.expression()
 
@@ -219,12 +217,12 @@ class CodeGenerator(CompiscriptVisitor):
     def visitLeftHandSide(self, ctx):
         cur = self.visit(ctx.primaryAtom())
 
-        for suf in (ctx.suffixOp() or []):
+        for suf in ctx.suffixOp() or []:
             kind = suf.getChild(0).getText()
 
-            if kind == '(':
+            if kind == "(":
                 args_ctx = getattr(suf, "arguments", None) and suf.arguments()
-                args = (args_ctx.expression() if args_ctx else [])
+                args = args_ctx.expression() if args_ctx else []
                 arg_vals = [self.visit(e) for e in args]
 
                 for val in arg_vals:
@@ -241,7 +239,7 @@ class CodeGenerator(CompiscriptVisitor):
                 continue
 
             # --- indexación ---
-            if kind == '[':
+            if kind == "[":
                 idx_val = self.visit(suf.expression())
                 temp = self.temp_manager.new_temp()
                 self.emit("[]", cur, idx_val, temp)
@@ -255,7 +253,7 @@ class CodeGenerator(CompiscriptVisitor):
                 continue
 
             # --- acceso a propiedad ---
-            if kind == '.':
+            if kind == ".":
                 # prop = suf.Identifier().getText()
 
                 # # --- 1. Determinar el tipo de la instancia ---
@@ -267,11 +265,10 @@ class CodeGenerator(CompiscriptVisitor):
                 #     self.emit("getmethod", inst_name, prop, temp)
                 #     cur = temp
                 #     continue
-                
+
                 prop = suf.Identifier().getText()
 
                 inst_name = cur
-
 
                 if inst_name in self.symbol_table:
                     type = self.symbol_table[inst_name].ty
@@ -280,11 +277,12 @@ class CodeGenerator(CompiscriptVisitor):
 
                     if type == "class":
                         temp = self.temp_manager.new_temp()
-                        retType = self.symbol_table[inst_name].ty.resolve_member(prop).ty
+                        retType = (
+                            self.symbol_table[inst_name].ty.resolve_member(prop).ty
+                        )
                         self.emit("getmethod", inst_name, prop, temp, retType=retType)
                         cur = temp
                         continue
-
 
                 temp = self.temp_manager.new_temp()
                 self.emit("getprop", cur, prop, temp)
@@ -296,7 +294,6 @@ class CodeGenerator(CompiscriptVisitor):
                 continue
 
         return cur
-
 
     # CLASS
     def visitClassDeclaration(self, ctx):
@@ -337,10 +334,10 @@ class CodeGenerator(CompiscriptVisitor):
         temp = self.temp_manager.new_temp()
         self.emit("new", cname, len(args), temp)
         return temp
-    
+
     def visitThisExpr(self, ctx):
         return "this"
-    
+
     def visitClassMember(self, ctx):
         if hasattr(ctx, "functionDeclaration") and ctx.functionDeclaration():
             return self.visit(ctx.functionDeclaration())
@@ -353,7 +350,11 @@ class CodeGenerator(CompiscriptVisitor):
     def visitPropertyAccessExpr(self, ctx):
         recv_place = self.visit(ctx.getChild(0))
 
-        prop = ctx.Identifier().getText() if ctx.Identifier() else ctx.getChild(1).getText()
+        prop = (
+            ctx.Identifier().getText()
+            if ctx.Identifier()
+            else ctx.getChild(1).getText()
+        )
 
         temp = self.temp_manager.new_temp()
         self.emit("getprop", recv_place, prop, temp)
@@ -381,7 +382,7 @@ class CodeGenerator(CompiscriptVisitor):
             self.temp_manager.release_temp(right)
 
         return temp
-    
+
     def visitRelationalExpr(self, ctx):
         if ctx.getChildCount() == 1:
             return self.visit(ctx.getChild(0))
@@ -402,7 +403,7 @@ class CodeGenerator(CompiscriptVisitor):
             self.temp_manager.release_temp(right)
 
         return temp
-    
+
     # Herencia
     def visitThisExpr(self, ctx):
         return "this"
@@ -416,7 +417,7 @@ class CodeGenerator(CompiscriptVisitor):
         Ltest = self.new_label(f"L{len(self.quadruples)}for_test_")
         Lbody = self.new_label(f"L{len(self.quadruples)}for_body_")
         Lincr = self.new_label(f"L{len(self.quadruples)}for_incr_")
-        Lend  = self.new_label(f"L{len(self.quadruples)}for_end_")
+        Lend = self.new_label(f"L{len(self.quadruples)}for_end_")
 
         self.loop_stack.append((Ltest, Lend))
 
@@ -461,7 +462,7 @@ class CodeGenerator(CompiscriptVisitor):
         Ltest = self.new_label(f"L{len(self.quadruples)}foreach_test_")
         Lbody = self.new_label(f"L{len(self.quadruples)}foreach_body_")
         Lincr = self.new_label(f"L{len(self.quadruples)}foreach_incr_")
-        Lend  = self.new_label(f"L{len(self.quadruples)}foreach_end_")
+        Lend = self.new_label(f"L{len(self.quadruples)}foreach_end_")
 
         self.loop_stack.append((Lincr, Lend))
 
@@ -508,7 +509,6 @@ class CodeGenerator(CompiscriptVisitor):
         self.loop_stack.pop()
         return None
 
-
     # EXTRA FUNCTION
     def visitPrintStatement(self, ctx):
         expr = ctx.expression()
@@ -534,7 +534,7 @@ class CodeGenerator(CompiscriptVisitor):
 
         elif len(exps) == 2:
             recv_place = self.visit(exps[0])
-            rhs_place  = self.visit(exps[1])
+            rhs_place = self.visit(exps[1])
             self.emit("setprop", recv_place, rhs_place, left)
 
             if rhs_place and str(rhs_place).startswith("t"):
@@ -548,9 +548,8 @@ class CodeGenerator(CompiscriptVisitor):
         rhs_place = self.visit(ctx.assignmentExpr())
 
         lhs = ctx.leftHandSide()
-        cur_place = self.visit(lhs.primaryAtom())   
+        cur_place = self.visit(lhs.primaryAtom())
         suffixes = list(lhs.suffixOp() or [])
-
 
         if not suffixes:
             self.emit("=", rhs_place, None, cur_place)
@@ -561,7 +560,7 @@ class CodeGenerator(CompiscriptVisitor):
         for s in suffixes[:-1]:
             kind = s.getChild(0).getText()
 
-            if kind == '[':
+            if kind == "[":
                 idx_val = self.visit(s.expression())
                 temp = self.temp_manager.new_temp()
                 self.emit("[]", cur_place, idx_val, temp)
@@ -574,7 +573,7 @@ class CodeGenerator(CompiscriptVisitor):
                 cur_place = temp
                 continue
 
-            if kind == '.':
+            if kind == ".":
                 prop = s.Identifier().getText()
                 temp = self.temp_manager.new_temp()
                 self.emit("getprop", cur_place, prop, temp)
@@ -585,14 +584,13 @@ class CodeGenerator(CompiscriptVisitor):
                 cur_place = temp
                 continue
 
-            if kind == '(':
+            if kind == "(":
                 return cur_place
 
         last = suffixes[-1]
         last_kind = last.getChild(0).getText()
 
-
-        if last_kind == '[':
+        if last_kind == "[":
             idx_val = self.visit(last.expression())
             self.emit("[]=", cur_place, idx_val, rhs_place)
 
@@ -604,7 +602,7 @@ class CodeGenerator(CompiscriptVisitor):
 
             return cur_place
 
-        if last_kind == '.':
+        if last_kind == ".":
             prop = last.Identifier().getText()
             self.emit("setprop", cur_place, rhs_place, prop)
 
@@ -612,12 +610,11 @@ class CodeGenerator(CompiscriptVisitor):
                 self.temp_manager.release_temp(rhs_place)
             return cur_place
 
-        if last_kind == '(':
+        if last_kind == "(":
             return cur_place
 
         return cur_place
 
-    
     def visitIndexExpr(self, ctx):
         arr_place = self.visit(ctx.parentCtx.getChild(0))
         idx_place = self.visit(ctx.expression())
@@ -631,7 +628,7 @@ class CodeGenerator(CompiscriptVisitor):
             self.temp_manager.release_temp(idx_place)
 
         return temp
-    
+
     def visitVariableDeclaration(self, ctx):
         name = ctx.Identifier().getText()
         init = getattr(ctx, "initializer", None) and ctx.initializer()
@@ -641,7 +638,7 @@ class CodeGenerator(CompiscriptVisitor):
             if isinstance(val, str) and val.startswith("t"):
                 self.temp_manager.release_temp(val)
         return name
-    
+
     def visitLiteralExpr(self, ctx):
         text = ctx.getText()
         if text.isdigit():
@@ -650,17 +647,23 @@ class CodeGenerator(CompiscriptVisitor):
             return float(text)
         except ValueError:
             pass
-        if text == "true": return True
-        if text == "false": return False
+        if text == "true":
+            return True
+        if text == "false":
+            return False
         if text.startswith('"') and text.endswith('"'):
             return text.strip('"')
         return text
-    
+
     def visitPrimaryExpr(self, ctx):
-        if ctx.getChildCount() == 3 and ctx.getChild(0).getText() == '(' and ctx.getChild(2).getText() == ')':
+        if (
+            ctx.getChildCount() == 3
+            and ctx.getChild(0).getText() == "("
+            and ctx.getChild(2).getText() == ")"
+        ):
             return self.visit(ctx.getChild(1))
         return self.visitChildren(ctx)
-    
+
     def visitArrayLiteralExpr(self, ctx):
         elems = ctx.expression() or []
 
@@ -682,9 +685,9 @@ class CodeGenerator(CompiscriptVisitor):
         elems = ctx.expression() or []
         size = len(elems)
 
-        arr_temp = f"arr_{self.arr_id}"#self.temp_manager.new_temp()
+        arr_temp = f"arr_{self.arr_id}"  # self.temp_manager.new_temp()
         self.arr_id += 1
-        self.emit("newarr", "ref", size, arr_temp) 
+        self.emit("newarr", "ref", size, arr_temp)
 
         for i, e in enumerate(elems):
             val = self.visit(e)
@@ -695,14 +698,12 @@ class CodeGenerator(CompiscriptVisitor):
 
         return arr_temp
 
-
-
     def visitConstantDeclaration(self, ctx):
         name = ctx.Identifier().getText()
         init = ctx.expression()
 
         if init:
-            val = self.visit(init)   
+            val = self.visit(init)
             self.emit("=", val, None, name)
 
             if isinstance(val, str) and val.startswith("t"):
@@ -711,7 +712,11 @@ class CodeGenerator(CompiscriptVisitor):
         return name
 
     def visitPrimaryExpr(self, ctx):
-        if ctx.getChildCount() == 3 and ctx.getChild(0).getText() == '(' and ctx.getChild(2).getText() == ')':
+        if (
+            ctx.getChildCount() == 3
+            and ctx.getChild(0).getText() == "("
+            and ctx.getChild(2).getText() == ")"
+        ):
             return self.visit(ctx.getChild(1))
 
         return self.visitChildren(ctx)
@@ -724,15 +729,15 @@ class CodeGenerator(CompiscriptVisitor):
         tok = tok.getText()
 
         if tok == "true":
-            return 1   
+            return 1
         if tok == "false":
             return 0
 
         if tok.startswith('"') or tok.startswith("'"):
-            return tok   
+            return tok
 
         if tok.replace("_", "").isdigit():
-            return int(tok)  
+            return int(tok)
 
         try:
             return float(tok)
@@ -740,7 +745,6 @@ class CodeGenerator(CompiscriptVisitor):
             pass
 
         return tok
-
 
     def visitArrayLiteralExpr(self, ctx):
         elems = ctx.expression() or []
@@ -762,7 +766,7 @@ class CodeGenerator(CompiscriptVisitor):
     def visitWhileStatement(self, ctx):
         Ltest = self.new_label(f"L{len(self.quadruples)}while_test_")
         Lbody = self.new_label(f"L{len(self.quadruples)}while_body_")
-        Lend  = self.new_label(f"L{len(self.quadruples)}while_end_")
+        Lend = self.new_label(f"L{len(self.quadruples)}while_end_")
 
         self.loop_stack.append((Ltest, Lend))
 
@@ -787,7 +791,7 @@ class CodeGenerator(CompiscriptVisitor):
     def visitDoWhileStatement(self, ctx):
         Lbody = self.new_label(f"L{len(self.quadruples)}dowhile_body_")
         Lcond = self.new_label(f"L{len(self.quadruples)}dowhile_cond_")
-        Lend  = self.new_label(f"L{len(self.quadruples)}dowhile_end_")
+        Lend = self.new_label(f"L{len(self.quadruples)}dowhile_end_")
 
         self.loop_stack.append((Lcond, Lend))
 
@@ -811,7 +815,6 @@ class CodeGenerator(CompiscriptVisitor):
         self.loop_stack.pop()
         return None
 
-        
     # Try / Catch
     def visitTryCatchStatement(self, ctx):
         # try block 'catch' '(' Identifier ')' block
@@ -820,7 +823,7 @@ class CodeGenerator(CompiscriptVisitor):
         catch_block = blocks[1] if len(blocks) >= 2 else None
 
         Lcatch = self.new_label(f"L{len(self.quadruples)}catch_")
-        Lend   = self.new_label(f"L{len(self.quadruples)}try_end_")
+        Lend = self.new_label(f"L{len(self.quadruples)}try_end_")
 
         # Instala handler
         self.emit("trybegin", None, None, Lcatch)
@@ -871,7 +874,7 @@ class CodeGenerator(CompiscriptVisitor):
             return None
         # fuera de contexto TypeChecker ya lo marco
         return None
-    
+
     # Switch
     def visitSwitchStatement(self, ctx):
         # switch (expr) { case v1: ...; case v2: ...; default: ... }
@@ -881,7 +884,9 @@ class CodeGenerator(CompiscriptVisitor):
         default_ctx = ctx.defaultCase()
 
         case_labels = [self.new_label(f"L{len(self.quadruples)}case_") for _ in cases]
-        Ldefault = self.new_label(f"L{len(self.quadruples)}default_") if default_ctx else None
+        Ldefault = (
+            self.new_label(f"L{len(self.quadruples)}default_") if default_ctx else None
+        )
         Lend = self.new_label(f"L{len(self.quadruples)}switch_end_")
 
         self.switch_stack.append(Lend)
@@ -903,13 +908,13 @@ class CodeGenerator(CompiscriptVisitor):
 
         for i, sc in enumerate(cases):
             self.emit("label", None, None, case_labels[i])
-            for st in (sc.statement() or []):
+            for st in sc.statement() or []:
                 self.visit(st)
 
         # Default
         if default_ctx:
             self.emit("label", None, None, Ldefault)
-            for st in (default_ctx.statement() or []):
+            for st in default_ctx.statement() or []:
                 self.visit(st)
 
         # End del switch

@@ -21,7 +21,8 @@ class ClassManager:
         if name not in self.classes:
             self.classes[name] = {
                 "fields": set(),
-                "methods": set()
+                "methods": set(),
+                "super": None
             }
 
     # -------------------------
@@ -64,6 +65,26 @@ class ClassManager:
         raw_field = field.replace("var_", "").replace("tmp_", "")
         raw_class = class_name.replace("var_", "").replace("tmp_", "")
         return f"var_{raw_class}_{raw_field}"
+
+    def add_inheritance(self, subclass, superclass):
+        # Registrar superclase
+        self.classes[subclass]["super"] = superclass
+
+        # Copiar CAMPOS del padre
+        parent_fields = self.classes[superclass]["fields"]
+        print("PARENTTTTTTTTTTTTTT", parent_fields)
+        for f in parent_fields:
+            if f not in self.classes[subclass]["fields"]:
+                self.classes[subclass]["fields"].add(f)
+
+        # Copiar MÉTODOS del padre
+        parent_methods = self.classes[superclass]["methods"]
+        print("PARENT METHODS:", parent_methods)
+        for m in parent_methods:
+            if m not in self.classes[subclass]["methods"]:
+                # Copia directa del método padre
+                self.classes[subclass]["methods"].add(m)
+
 
     # -------------------------
     #  RESOLVE METHOD LABEL

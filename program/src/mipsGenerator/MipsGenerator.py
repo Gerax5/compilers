@@ -31,6 +31,8 @@ class MIPSGenerator:
         self.classman = ClassManager()
         self.printer = MipsPrinter(self)
         self.arrayutil = ArrayUtil(self)
+        self.handler_stack = []
+        self.current_handler = None
 
     def _is_string_literal(self, x):
         return isinstance(x, str) and len(x) >= 2 and x[0] == '"' and x[-1] == '"'
@@ -108,6 +110,11 @@ class MIPSGenerator:
         return False
 
     def _load(self, reg, val):
+        
+        # if self.funcman.current_function and isinstance(val, str):
+        #     raw_val = val.replace("var_", "").replace("tmp_", "")
+        #     val = f"var_{self.funcman.current_function}_{raw_val}"
+
         if isinstance(val, int):
             return [f"\tli {reg}, {val}"]
 
@@ -164,7 +171,10 @@ class MIPSGenerator:
                 self.arrayutil.declare_array(arrname, size)
                 continue
 
-            for key in ("result", "arg1", "arg2"):
+            if q["op"]== "inherit":
+                continue
+
+            for key in ("result", "arg1", "arg2"):  
                 val = q[key]
                 if val is None:
                     continue
@@ -205,6 +215,7 @@ class MIPSGenerator:
                             else:
                                 self.variables.add(f"{inClass}_{val}")
                         elif inFunction:
+                            self.funcman.add_variable(f"var_{val}", inFunction)
                             self.variables.add(f"{inFunction}_{val}")
                         else:
                             self.variables.add(val)
@@ -254,6 +265,13 @@ class MIPSGenerator:
                 inClass = q["result"]
                 self.class_variables[inClass] = set()
                 self.classman.begin_class(inClass)
+                continue
+
+            if q["op"] == "inherit":
+                subclass = q["result"]
+                superclass = q["arg1"]
+                print("HERENCIA:", subclass, superclass)
+                self.classman.add_inheritance(subclass, superclass)
                 continue
 
             if q["op"] == "endclass":
@@ -308,6 +326,8 @@ class MIPSGenerator:
                     self.concat_temps[res] = list(self.concat_temps[arg1])
                     return
 
+            print("VARRRRR", res)
+
             clean_res = res.replace("var_", "").replace("tmp_", "")
             if clean_res in self.symbol_table and "[]" in str(
                 self.symbol_table[clean_res].ty
@@ -318,6 +338,14 @@ class MIPSGenerator:
                     f"\tsw $t0, {res}",
                 ]
                 return
+
+            # if self.funcman.current_function and isinstance(arg1, str):
+            #     raw_arg1 = arg1.replace("var_", "").replace("tmp_", "")
+            #     arg1 = f"var_{self.funcman.current_function}_{raw_arg1}"
+
+            # if self.funcman.current_function and isinstance(res, str):
+            #     raw_res = res.replace("var_", "").replace("tmp_", "")
+            #     res = f"var_{self.funcman.current_function}_{raw_res}"
 
             if isinstance(arg1, int):
                 self.output += [
@@ -339,6 +367,12 @@ class MIPSGenerator:
                 self.types[res] = "int"
                 self.output += self._load("$t0", arg1)
                 self.output += self._load("$t1", arg2)
+
+                # if self.funcman.current_function and isinstance(res, str):
+                #     raw_res = res.replace("var_", "").replace("tmp_", "")
+                #     res = f"var_{self.funcman.current_function}_{raw_res}"
+
+
                 self.output += [
                     f"\tadd $t2, $t0, $t1",
                     f"\tsw $t2, {res}",
@@ -348,6 +382,9 @@ class MIPSGenerator:
         elif op == "-":
             self.output += self._load("$t0", arg1)
             self.output += self._load("$t1", arg2)
+            if self.funcman.current_function and isinstance(res, str):
+                    raw_res = res.replace("var_", "").replace("tmp_", "")
+                    res = f"var_{self.funcman.current_function}_{raw_res}"
             self.output += [
                 f"\tsub $t2, $t0, $t1",
                 f"\tsw $t2, {res}",
@@ -355,8 +392,13 @@ class MIPSGenerator:
 
         # ---------- MULT ----------
         elif op == "*":
+            print("SUMA:", arg1, arg2, res)
+
             self.output += self._load("$t0", arg1)
             self.output += self._load("$t1", arg2)
+            if self.funcman.current_function and isinstance(res, str):
+                    raw_res = res.replace("var_", "").replace("tmp_", "")
+                    res = f"var_{self.funcman.current_function}_{raw_res}"
             self.output += [
                 f"\tmul $t2, $t0, $t1",
                 f"\tsw $t2, {res}",
@@ -366,6 +408,9 @@ class MIPSGenerator:
         elif op == "/":
             self.output += self._load("$t0", arg1)
             self.output += self._load("$t1", arg2)
+            if self.funcman.current_function and isinstance(res, str):
+                    raw_res = res.replace("var_", "").replace("tmp_", "")
+                    res = f"var_{self.funcman.current_function}_{raw_res}"
             self.output += [
                 f"\tdiv $t0, $t1",
                 f"\tmflo $t2",
@@ -449,7 +494,9 @@ class MIPSGenerator:
         elif op == "tryend":
             if self.handler_stack:
                 self.handler_stack.pop()
-            self.current_handler = self.handler_stack[-1] if self.handler_stack else None
+            self.current_handler = (
+                self.handler_stack[-1] if self.handler_stack else None
+            )
             return
 
         elif op == "endfunc":
@@ -614,12 +661,18 @@ class MIPSGenerator:
                 self.output += self.funcman.end_function()
                 return
 
+
             # if self.is_string(arg1):
             #     # Debes asegurar que 'arg1' tiene un label generado por concat
             #     label = self.strutil.concat_to_mips(self, arg1)
             #     self.output.append(f"\tla $v0, {label}")
             #     self.output += self.funcman.end_function()
             #     return
+
+            if isinstance(arg1, int):
+                self.output.append(f"\tli $v0, {arg1}")
+                self.output += self.funcman.end_function()
+                return
 
             reg = self.funcman.resolve_var(arg1)
 
@@ -699,6 +752,12 @@ class MIPSGenerator:
             self.output += self.arrayutil.emit_load(arg1, arg2, res)
             return
 
+        elif op == "inherit":
+            subclass = res
+            superclass = arg1
+            self.classman.add_inheritance(subclass, superclass)
+            return
+
         # ---------- PRINT ----------
         elif op == "print":
             print("CURR CLASS",self.classman.current_class)
@@ -720,6 +779,16 @@ class MIPSGenerator:
                     self.types[param_reg] = self.types[arg1]
                 self.printer.emit(param_reg)
                 return
+
+            # if self.funcman.current_function:
+            #     if isinstance(arg1, str):
+            #         raw_arg1 = arg1.replace("var_", "").replace("tmp_", "")
+            #         raw_function = self.funcman.current_function
+
+            #         if arg1 in self.funcman.locals[raw_function]:
+            #             arg1 = f"var_{self.funcman.current_function}_{raw_arg1}"
+            #             self.printer.emit(arg1)
+            #             return
             
 
             self.printer.emit(arg1)

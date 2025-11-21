@@ -18,6 +18,7 @@ export default function IDE() {
   const [loading, setLoading] = useState(false);
   const [symtab, setSymtab] = useState<ScopeNode | undefined>(undefined);
   const [tac, setTac] = useState<Quad[] | undefined>(undefined);
+  const [mips, setMips] = useState<string | undefined>(undefined);
 
   async function onAnalyze() {
     setLoading(true);
@@ -27,6 +28,7 @@ export default function IDE() {
       setGlobals(res.globals || []);
       setTac(res.tac || []);
       setSymtab(res.symtab);
+      setMips(res.mips || "");
     } catch (e) {
       setErrors([{ line: null, col: null, msg: String(e), severity: "error" }]);
       setGlobals([]);
@@ -62,6 +64,7 @@ export default function IDE() {
           globals={globals}
           symtab={symtab}
           tac={tac}
+          mips={mips}
         />
       </div>
     </div>
