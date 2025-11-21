@@ -819,8 +819,8 @@ class CodeGenerator(CompiscriptVisitor):
         try_block = blocks[0] if len(blocks) >= 1 else None
         catch_block = blocks[1] if len(blocks) >= 2 else None
 
-        Lcatch = self.new_label("Lcatch_")
-        Lend   = self.new_label("Ltry_end_")
+        Lcatch = self.new_label(f"L{len(self.quadruples)}catch_")
+        Lend   = self.new_label(f"L{len(self.quadruples)}try_end_")
 
         # Instala handler
         self.emit("trybegin", None, None, Lcatch)
@@ -880,9 +880,9 @@ class CodeGenerator(CompiscriptVisitor):
         cases = list(ctx.switchCase() or [])
         default_ctx = ctx.defaultCase()
 
-        case_labels = [self.new_label("Lcase_") for _ in cases]
-        Ldefault = self.new_label("Ldefault_") if default_ctx else None
-        Lend = self.new_label("Lswitch_end_")
+        case_labels = [self.new_label(f"L{len(self.quadruples)}case_") for _ in cases]
+        Ldefault = self.new_label(f"L{len(self.quadruples)}default_") if default_ctx else None
+        Lend = self.new_label(f"L{len(self.quadruples)}switch_end_")
 
         self.switch_stack.append(Lend)
 

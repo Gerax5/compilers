@@ -65,6 +65,21 @@ class ArrayUtil:
         else:
             code.append(f"\tlw $t1, {index}")
 
+        if self.gen.handler_stack:                     # hay try en ejecución
+            handler = self.gen.handler_stack[-1]       # Lcatch...
+            
+            print("Usando handler:", handler)
+            raw = handler.replace("var_", "").replace("tmp_", "")
+
+            print(self.gen.arrays)
+            arr = self.gen.arrays.get(base_ptr.replace("var_", "").replace("tmp_", ""))
+            # cargar len del array
+            code.append(f"\tlw $t0, arr_{arr}_len")  # arr_numbers_len
+            # i < 0 → catch
+            code.append(f"\tbltz $t1, {raw}")
+            # i >= len → catch
+            code.append(f"\tbge $t1, $t0, {raw}")
+
         code += [
             "\tsll $t1, $t1, 2",
             "\tadd $t3, $t3, $t1",

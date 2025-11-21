@@ -1,11 +1,5 @@
-
-let numbers: integer[] = [1, 2, 3, 4, 5];
-
-print("HOLA");
-
-foreach (n in numbers) {
-  if (n == 3){
-    continue;
-  }
-  print(n);
-}
+let i: integer = 0;
+    while (i < 3) {
+        print(i);
+        i = i + 1;
+    }

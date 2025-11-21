@@ -33,9 +33,9 @@ def type_check(stb, errors, parser, tree):
     tc.visit(tree)
     return tc, errors
 
-def gen_code(tree):
+def gen_code(tree, symbol_table):
     temp_manager = TempManager()
-    cg = CodeGenerator(temp_manager)
+    cg = CodeGenerator(temp_manager, symbol_table)
     cg.visit(tree)
     return cg
 
@@ -50,7 +50,7 @@ def test_mips_assign_integer():
     parser, tree = parse_src(src)
     stb, errors = build_symbols(tree)
     tc, errors  = type_check(stb, errors, parser, tree)
-    cg = gen_code(tree)
+    cg = gen_code(tree, stb.globalScope.symbols)
     code = gen_mips(cg, stb.globalScope.symbols)
 
     assert ".data" in code
@@ -63,7 +63,7 @@ def test_let_assign_integer():
     parser, tree = parse_src(src)
     stb, errors = build_symbols(tree)
     tc, errors  = type_check(stb, errors, parser, tree)
-    cg = gen_code(tree)
+    cg =gen_code(tree, stb.globalScope.symbols)
     code = gen_mips(cg, stb.globalScope.symbols)
 
     assert ".data" in code
@@ -79,7 +79,7 @@ def test_mips_assign_variable():
     parser, tree = parse_src(src)
     stb, errors = build_symbols(tree)
     tc, errors  = type_check(stb, errors, parser, tree)
-    cg = gen_code(tree)
+    cg =gen_code(tree, stb.globalScope.symbols)
     code = gen_mips(cg, stb.globalScope.symbols)
 
     assert ".data" in code
@@ -95,7 +95,7 @@ def test_string_literal_handling():
     parser, tree = parse_src(src)
     stb, errors = build_symbols(tree)
     tc, errors  = type_check(stb, errors, parser, tree)
-    cg = gen_code(tree)
+    cg =gen_code(tree, stb.globalScope.symbols)
     code = gen_mips(cg, stb.globalScope.symbols)
 
     assert ".data" in code
@@ -112,7 +112,7 @@ def test_variable_printing():
     parser, tree = parse_src(src)
     stb, errors = build_symbols(tree)
     tc, errors  = type_check(stb, errors, parser, tree)
-    cg = gen_code(tree)
+    cg =gen_code(tree, stb.globalScope.symbols)
     code = gen_mips(cg, stb.globalScope.symbols)
 
     assert ".data" in code
@@ -132,7 +132,7 @@ def test_addition_operation():
     parser, tree = parse_src(src)
     stb, errors = build_symbols(tree)
     tc, errors  = type_check(stb, errors, parser, tree)
-    cg = gen_code(tree)
+    cg =gen_code(tree, stb.globalScope.symbols)
     code = gen_mips(cg, stb.globalScope.symbols)
 
     assert ".data" in code
@@ -157,7 +157,7 @@ def test_subtraction_operation():
     parser, tree = parse_src(src)
     stb, errors = build_symbols(tree)
     tc, errors  = type_check(stb, errors, parser, tree)
-    cg = gen_code(tree)
+    cg =gen_code(tree, stb.globalScope.symbols)
     code = gen_mips(cg, stb.globalScope.symbols)
 
     assert ".data" in code
@@ -183,7 +183,7 @@ def test_string_concatenation():
     parser, tree = parse_src(src)
     stb, errors = build_symbols(tree)
     tc, errors  = type_check(stb, errors, parser, tree)
-    cg = gen_code(tree)
+    cg =gen_code(tree, stb.globalScope.symbols)
     code = gen_mips(cg, stb.globalScope.symbols)
 
     assert ".data" in code
@@ -203,7 +203,7 @@ def test_string_int_concatenation():
     parser, tree = parse_src(src)
     stb, errors = build_symbols(tree)
     tc, errors  = type_check(stb, errors, parser, tree)
-    cg = gen_code(tree)
+    cg =gen_code(tree, stb.globalScope.symbols)
     code = gen_mips(cg, stb.globalScope.symbols)
 
     assert ".data" in code

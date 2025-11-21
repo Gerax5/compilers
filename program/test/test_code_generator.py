@@ -32,9 +32,9 @@ def type_check(stb, errors, parser, tree):
     tc.visit(tree)
     return tc, errors
 
-def gen_code(tree):
+def gen_code(tree, symbol_table):
     temp_manager = TempManager()
-    cg = CodeGenerator(temp_manager)
+    cg = CodeGenerator(temp_manager, symbol_table)
     cg.visit(tree)
     return cg
 
@@ -44,7 +44,7 @@ def test_simple_var_decl_codegen():
     parser, tree = parse_src(src)
     stb, errors = build_symbols(tree)
     tc, errors  = type_check(stb, errors, parser, tree)
-    cg = gen_code(tree)
+    cg = gen_code(tree, stb.globalScope.symbols)
 
     assert not errors.errors
     assert any(q["op"] == "=" and q["arg1"] == 42 and q["result"] == "x" for q in cg.quadruples)
@@ -54,7 +54,7 @@ def test_arithmetic_codegen():
     parser, tree = parse_src(src)
     stb, errors = build_symbols(tree)
     tc, errors  = type_check(stb, errors, parser, tree)
-    cg = gen_code(tree)
+    cg = gen_code(tree, stb.globalScope.symbols)
 
     assert not errors.errors
 
@@ -79,7 +79,7 @@ def test_create_function_codegen():
     parser, tree = parse_src(src)
     stb, errors = build_symbols(tree)
     tc, errors  = type_check(stb, errors, parser, tree)
-    cg = gen_code(tree)
+    cg = gen_code(tree, stb.globalScope.symbols)
 
     assert not errors.errors
     assert any(q["op"] == "label" and q["result"] == "func_add" for q in cg.quadruples)
@@ -95,7 +95,7 @@ def test_function_call_codegen():
     parser, tree = parse_src(src)
     stb, errors = build_symbols(tree)
     tc, errors  = type_check(stb, errors, parser, tree)
-    cg = gen_code(tree)
+    cg = gen_code(tree, stb.globalScope.symbols)
 
     assert not errors.errors
     assert any(q["op"] == "call" and q["arg1"] == "add" for q in cg.quadruples)
@@ -116,7 +116,7 @@ def test_class_codegen():
     parser, tree = parse_src(src)
     stb, errors = build_symbols(tree)
     tc, errors  = type_check(stb, errors, parser, tree)
-    cg = gen_code(tree)
+    cg = gen_code(tree, stb.globalScope.symbols)
 
     assert not errors.errors
     assert any(q["op"] == "class" and q["result"] == "Point" for q in cg.quadruples)
@@ -128,7 +128,7 @@ def test_constant_declaration_codegen():
     parser, tree = parse_src(src)
     stb, errors = build_symbols(tree)
     tc, errors  = type_check(stb, errors, parser, tree)
-    cg = gen_code(tree)
+    cg = gen_code(tree, stb.globalScope.symbols)
 
     assert not errors.errors
     assert any(q["op"] == "=" and q["arg1"] == 3.14 and q["result"] == "PI" for q in cg.quadruples)
@@ -150,7 +150,7 @@ def test_class_call_codegen():
     parser, tree = parse_src(src)
     stb, errors = build_symbols(tree)
     tc, errors  = type_check(stb, errors, parser, tree)
-    cg = gen_code(tree)
+    cg = gen_code(tree, stb.globalScope.symbols)
 
     assert not errors.errors
     assert any(q["op"] == "new" and q["arg1"] == "Point" for q in cg.quadruples)
@@ -161,7 +161,7 @@ def test_string_literal_codegen():
     parser, tree = parse_src(src)
     stb, errors = build_symbols(tree)
     tc, errors  = type_check(stb, errors, parser, tree)
-    cg = gen_code(tree)
+    cg = gen_code(tree, stb.globalScope.symbols)
 
     assert not errors.errors
     assert any(q["op"] == "=" and q["arg1"] == '"Hello, World!"' and q["result"] == "greeting" for q in cg.quadruples)
@@ -171,7 +171,7 @@ def test_boolean_literal_codegen():
     parser, tree = parse_src(src)
     stb, errors = build_symbols(tree)
     tc, errors  = type_check(stb, errors, parser, tree)
-    cg = gen_code(tree)
+    cg = gen_code(tree, stb.globalScope.symbols)
 
     assert not errors.errors
     assert any(q["op"] == "=" and q["arg1"] == 1 and q["result"] == "isActive" for q in cg.quadruples)
@@ -181,7 +181,7 @@ def test_null_literal_codegen():
     parser, tree = parse_src(src)
     stb, errors = build_symbols(tree)
     tc, errors  = type_check(stb, errors, parser, tree)
-    cg = gen_code(tree)
+    cg = gen_code(tree, stb.globalScope.symbols)
 
     assert not errors.errors
     assert any(q["op"] == "=" and q["arg1"] == "null" and q["result"] == "nothing" for q in cg.quadruples)
@@ -191,7 +191,7 @@ def test_array_declaration_codegen():
     parser, tree = parse_src(src)
     stb, errors = build_symbols(tree)
     tc, errors  = type_check(stb, errors, parser, tree)
-    cg = gen_code(tree)
+    cg = gen_code(tree, stb.globalScope.symbols)
 
     assert not errors.errors
     assert any(q["op"] == "newarr" and q["arg1"] == "ref" and q["arg2"] == 5 and q["result"] == "arr_0" for q in cg.quadruples)
@@ -208,7 +208,7 @@ def test_matrix_declaration_codegen():
     parser, tree = parse_src(src)
     stb, errors = build_symbols(tree)
     tc, errors  = type_check(stb, errors, parser, tree)
-    cg = gen_code(tree)
+    cg = gen_code(tree, stb.globalScope.symbols)
 
     assert not errors.errors
     assert any(q["op"] == "newarr" and q["arg1"] == "ref" and q["arg2"] == 2 and q["result"] == "arr_0" for q in cg.quadruples)
@@ -242,7 +242,7 @@ def test_array_element_assignment_codegen():
     parser, tree = parse_src(src)
     stb, errors = build_symbols(tree)
     tc, errors  = type_check(stb, errors, parser, tree)
-    cg = gen_code(tree)
+    cg = gen_code(tree, stb.globalScope.symbols)
 
     assert not errors.errors
     assert any(q["op"] == "[]=" and q["arg1"] == "arr" and q["arg2"] == 0 and q["result"] == 10 for q in cg.quadruples)
@@ -257,7 +257,7 @@ def test_for_statement_codegen():
     parser, tree = parse_src(src)
     stb, errors = build_symbols(tree)
     tc, errors = type_check(stb, errors, parser, tree)
-    cg = gen_code(tree)
+    cg = gen_code(tree, stb.globalScope.symbols)
 
     assert not errors.errors, f"Errores de compilación: {errors.errors}"
 
@@ -268,10 +268,10 @@ def test_for_statement_codegen():
         for q in quads
     ), "No se generó la asignación inicial i = 0"
 
-    assert any("Lfor_test_" in (q["result"] or "") for q in quads if q["op"] == "label"), "Falta label Lfor_test"
-    assert any("Lfor_body_" in (q["result"] or "") for q in quads if q["op"] == "label"), "Falta label Lfor_body"
-    assert any("Lfor_incr_" in (q["result"] or "") for q in quads if q["op"] == "label"), "Falta label Lfor_incr"
-    assert any("Lfor_end_" in (q["result"] or "") for q in quads if q["op"] == "label"), "Falta label Lfor_end"
+    assert any(f"L0for_test_" in (q["result"] or "") for q in quads if q["op"] == "label"), "Falta label Lfor_test"
+    assert any(f"L0for_body_" in (q["result"] or "") for q in quads if q["op"] == "label"), "Falta label Lfor_body"
+    assert any(f"L0for_incr_" in (q["result"] or "") for q in quads if q["op"] == "label"), "Falta label Lfor_incr"
+    assert any(f"L0for_end_" in (q["result"] or "") for q in quads if q["op"] == "label"), "Falta label Lfor_end"
 
     assert any(
         q["op"] == "<" and q["arg1"] == "i" and q["arg2"] == 3
@@ -279,7 +279,7 @@ def test_for_statement_codegen():
     ), "No se generó la comparación i < 3"
 
     assert any(
-        q["op"] == "ifFalse" and "Lfor_end_" in str(q["result"])
+        q["op"] == "ifFalse" and "L0for_end_" in str(q["result"])
         for q in quads
     ), "Falta el salto condicional ifFalse hacia Lfor_end"
 
@@ -299,12 +299,12 @@ def test_for_statement_codegen():
     ), "No se reasignó el incremento a i"
 
     assert any(
-        q["op"] == "goto" and "Lfor_test_" in str(q["result"])
+        q["op"] == "goto" and "L0for_test_" in str(q["result"])
         for q in quads
     ), "Falta salto goto hacia Lfor_test"
 
     assert any(
-        q["op"] == "label" and "Lfor_end_" in q["result"]
+        q["op"] == "label" and "L0for_end_" in q["result"]
         for q in quads
     ), "Falta etiqueta final Lfor_end"
 
@@ -319,7 +319,7 @@ def test_foreach_codegen():
     parser, tree = parse_src(src)
     stb, errors = build_symbols(tree)
     tc, errors = type_check(stb, errors, parser, tree)
-    cg = gen_code(tree)
+    cg = gen_code(tree, stb.globalScope.symbols)
 
     assert not errors.errors, f"Errores en type checker: {errors.errors}"
 
@@ -365,19 +365,19 @@ def test_while_codegen_success():
     parser, tree = parse_src(src)
     stb, errors = build_symbols(tree)
     tc, errors  = type_check(stb, errors, parser, tree)
-    cg = gen_code(tree)
+    cg = gen_code(tree, stb.globalScope.symbols)
 
     assert not errors.errors
 
     quads = cg.quadruples
-    assert any(q["op"] == "label" and "Lwhile_test_" in q["result"] for q in quads)
-    assert any(q["op"] == "label" and "Lwhile_body_" in q["result"] for q in quads)
-    assert any(q["op"] == "label" and "Lwhile_end_"  in q["result"] for q in quads)
+    assert any(q["op"] == "label" and "L1while_test_" in q["result"] for q in quads)
+    assert any(q["op"] == "label" and "L1while_body_" in q["result"] for q in quads)
+    assert any(q["op"] == "label" and "L1while_end_"  in q["result"] for q in quads)
     assert any(q["op"] == "<" and q["arg1"] == "i" and q["arg2"] == 3 for q in quads)
-    assert any(q["op"] == "ifFalse" and "Lwhile_end_" in str(q["result"]) for q in quads)
+    assert any(q["op"] == "ifFalse" and "L1while_end_" in str(q["result"]) for q in quads)
     assert any(q["op"] == "print" and q["arg1"] == "i" for q in quads)
     assert any(q["op"] == "+" and q["arg1"] == "i" and q["arg2"] == 1 for q in quads)
-    assert any(q["op"] == "goto" and "Lwhile_test_" in str(q["result"]) for q in quads)
+    assert any(q["op"] == "goto" and "L1while_test_" in str(q["result"]) for q in quads)
 
 # ----- Fallo
 def test_while_condition_not_bool_failure():
@@ -403,15 +403,15 @@ def test_dowhile_codegen_success():
     parser, tree = parse_src(src)
     stb, errors = build_symbols(tree)
     tc, errors  = type_check(stb, errors, parser, tree)
-    cg = gen_code(tree)
+    cg = gen_code(tree, stb.globalScope.symbols)
 
     assert not errors.errors
 
     quads = cg.quadruples
-    assert any(q["op"] == "label" and "Ldowhile_body_" in q["result"] for q in quads)
-    assert any(q["op"] == "label" and "Ldowhile_cond_" in q["result"] for q in quads)
-    assert any(q["op"] == "label" and "Ldowhile_end_"  in q["result"] for q in quads)
-    assert any(q["op"] == "ifTrue" and "Ldowhile_body_" in str(q["result"]) for q in quads)
+    assert any(q["op"] == "label" and "L1dowhile_body_" in q["result"] for q in quads)
+    assert any(q["op"] == "label" and "L1dowhile_cond_" in q["result"] for q in quads)
+    assert any(q["op"] == "label" and "L1dowhile_end_"  in q["result"] for q in quads)
+    assert any(q["op"] == "ifTrue" and "L1dowhile_body_" in str(q["result"]) for q in quads)
 
 # ----- Fallo
 def test_dowhile_condition_not_bool_failure():
@@ -437,7 +437,7 @@ def test_try_catch_codegen_success():
     parser, tree = parse_src(src)
     stb, errors = build_symbols(tree)
     tc, errors  = type_check(stb, errors, parser, tree)
-    cg = gen_code(tree)
+    cg = gen_code(tree, stb.globalScope.symbols)
 
     assert not errors.errors
 
@@ -461,7 +461,7 @@ def test_continue_in_loop_codegen_success():
     parser, tree = parse_src(src)
     stb, errors = build_symbols(tree)
     tc, errors  = type_check(stb, errors, parser, tree)
-    cg = gen_code(tree)
+    cg = gen_code(tree, stb.globalScope.symbols)
 
     assert not errors.errors
 
@@ -493,7 +493,7 @@ def test_break_in_loop_codegen_success():
     parser, tree = parse_src(src)
     stb, errors = build_symbols(tree)
     tc, errors  = type_check(stb, errors, parser, tree)
-    cg = gen_code(tree)
+    cg = gen_code(tree, stb.globalScope.symbols)
 
     assert not errors.errors
 
@@ -527,7 +527,7 @@ def test_switch_basic_codegen_success():
     parser, tree = parse_src(src)
     stb, errors = build_symbols(tree)
     tc, errors  = type_check(stb, errors, parser, tree)
-    cg = gen_code(tree)
+    cg = gen_code(tree, stb.globalScope.symbols)
 
     assert not errors.errors
 
@@ -554,7 +554,7 @@ def test_switch_no_default_fallthrough_success():
     parser, tree = parse_src(src)
     stb, errors = build_symbols(tree)
     tc, errors  = type_check(stb, errors, parser, tree)
-    cg = gen_code(tree)
+    cg = gen_code(tree, stb.globalScope.symbols)
 
     assert not errors.errors
 
