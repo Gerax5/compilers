@@ -22,8 +22,6 @@ class MIPSGenerator:
         self.symbol_table = symbol_table
         self.types = {}
         self.arrays = {}
-        self.handler_stack = []
-        self.current_handler = None
         self.varutil = VarUtil()
         self.strutil = StrUtil()
         self.funcman = FunctionManager()
@@ -444,9 +442,10 @@ class MIPSGenerator:
         elif op == "tryend":
             if self.handler_stack:
                 self.handler_stack.pop()
-            self.current_handler = self.handler_stack[-1] if self.handler_stack else None
+            self.current_handler = (
+                self.handler_stack[-1] if self.handler_stack else None
+            )
             return
-
 
         elif op == "ifFalse":
             self.output += self._load("$t0", arg1)
