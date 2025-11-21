@@ -5,6 +5,8 @@ from antlr4 import InputStream, CommonTokenStream # type: ignore
 from CompiscriptLexer import CompiscriptLexer
 from CompiscriptParser import CompiscriptParser
 from antlr4 import ParseTreeWalker # type: ignore
+from src.utils.Temp import TempManager
+from src.codeGenerator.CodeGenerator import CodeGenerator
 
 from src.utils.Errors import Error
 from src.symbolTable.SymbolTableBuilder import SymbolTableBuilder
@@ -53,34 +55,44 @@ def _sym_to_json(sym):
     kind = getattr(sym, "kind", None)
     name = getattr(sym, "name", "?")
 
+    def mem_meta(s):
+        return {
+            "size": getattr(s, "size", None),
+            "address": getattr(s, "address", None),
+        }
+
     if kind in ("var", "const") or hasattr(sym, "is_const"):
         is_const = getattr(sym, "is_const", False)
-        return {
+        base = {
             "kind": "const" if is_const else "var",
             "name": name,
             "type": _ty_to_str(getattr(sym, "ty", Type.NULL)),
         }
+
+        return {**base, **mem_meta(sym)}
     
     if kind == "func":
         ret = _ty_to_str(getattr(sym, "ty", Type.VOID))
         params = [ _param_to_json(p) for p in getattr(sym, "params", []) ]
-        return {
+        base = {
             "kind": "func",
             "name": name,
             "returnType": ret,
             "params": params,
         }
+        return {**base, **mem_meta(sym)}
     
     if kind == "class":
         sup = getattr(sym, "superclass", None)
         super_name = getattr(sup, "name", None) if sup else None
-        return {
+        base = {
             "kind": "class",
             "name": name,
             "super": super_name,
         }
+        return {**base, **mem_meta(sym)}
     
-    return {"kind": kind or "symbol", "name": name}
+    return {"kind": kind or "symbol", "name": name, **mem_meta(sym)}
 
 def _build_symtab_json(global_scope, scopes_dict_values):
     all_scopes = set([global_scope])
@@ -146,6 +158,12 @@ def analyze(req: AnalyzeReq):
     tc = TypeChecker(st.scopes, st.globalScope, errors, parser)
     tc.visit(tree)
 
+    temp_manager = TempManager()
+    generator = CodeGenerator(temp_manager)
+    generator.visit(tree)
+
+    tac = generator.quadruples  # lista de {id, op, arg1, arg2, result}
+
     # símbolos globales rápidos para la vista
     globalsyms = sorted(list(st.globalScope.symbols.keys()))
     symtab_root = _build_symtab_json(st.globalScope, list(st.scopes.values()))
@@ -153,5 +171,6 @@ def analyze(req: AnalyzeReq):
     return {
         "errors": _errors_to_json(errors.errors), 
         "globals": globalsyms, 
-        "symtab": symtab_root
+        "symtab": symtab_root,
+        "tac": tac
     }

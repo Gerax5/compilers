@@ -485,7 +485,7 @@ def test_property_assign_ok():
     parser, tree = parse_src(src)
     stb, errors = build_symbols(tree)
     tc, errors  = type_check(stb, errors, parser, tree)
-    assert not errors.errors
+    assert errors_contain(errors, "Variable 'c' de tipo clase 'C' requiere inicialización con 'new C()'")
 
 def test_property_assign_wrong_type_error():
     src = """
@@ -547,7 +547,9 @@ def test_while_condition_not_bool_error():
 def test_do_while_condition_bool_ok():
     src = """
     function f(): void {
-        do { } while (true);
+        do { 
+            const x: integer = 1;
+        } while (true);
     }
     """
     parser, tree = parse_src(src)

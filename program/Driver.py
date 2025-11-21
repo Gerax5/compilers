@@ -6,8 +6,11 @@ from CompiscriptParser import CompiscriptParser
 from CompiscriptListener import CompiscriptListener
 
 from src.utils.Errors import Error
+from src.utils.Temp import TempManager
 from src.symbolTable.SymbolTableBuilder import SymbolTableBuilder
 from src.typeChecker.TypeChecker import TypeChecker
+from src.codeGenerator.CodeGenerator import CodeGenerator
+
 
 def main(argv):
     input_stream = FileStream(argv[1], encoding="utf-8")
@@ -25,9 +28,17 @@ def main(argv):
     checker = TypeChecker(listener.scopes, listener.globalScope, errors, parser)
     checker.visit(tree)
 
-    print("GLOBAL:", list(listener.globalScope.symbols.keys()))
-    for ctx, sc in listener.scopes.items():
-        print(type(ctx).__name__, sc.name, list(sc.symbols.keys()))
+    temp_manager = TempManager()
+    generator = CodeGenerator(temp_manager)
+    generator.visit(tree)
+
+    print("TAC generado:")
+    for quad in generator.quadruples:
+        print(quad)
+
+    # print("GLOBAL:", list(listener.globalScope.symbols.keys()))
+    # for ctx, sc in listener.scopes.items():
+    #     print(type(ctx).__name__, sc.name, list(sc.symbols.keys()))
 
     for error in errors.errors:
         print(error)
