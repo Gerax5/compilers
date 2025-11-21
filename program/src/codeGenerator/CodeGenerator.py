@@ -458,11 +458,12 @@ class CodeGenerator(CompiscriptVisitor):
         return None
 
     def visitForeachStatement(self, ctx):
-        Ltest = self.new_label("Lforeach_test_")
-        Lbody = self.new_label("Lforeach_body_")
-        Lend  = self.new_label("Lforeach_end_")
+        Ltest = self.new_label(f"L{len(self.quadruples)}foreach_test_")
+        Lbody = self.new_label(f"L{len(self.quadruples)}foreach_body_")
+        Lincr = self.new_label(f"L{len(self.quadruples)}foreach_incr_")
+        Lend  = self.new_label(f"L{len(self.quadruples)}foreach_end_")
 
-        self.loop_stack.append((Ltest, Lend))
+        self.loop_stack.append((Lincr, Lend))
 
         iterator_temp = self.temp_manager.new_temp()  # i = 0
         self.emit("=", 0, None, iterator_temp)
@@ -493,6 +494,8 @@ class CodeGenerator(CompiscriptVisitor):
         body = getattr(ctx, "block", None) and ctx.block()
         if body:
             self.visit(body)
+
+        self.emit("label", None, None, Lincr)
 
         incr_temp = self.temp_manager.new_temp()
         self.emit("+", iterator_temp, 1, incr_temp)
@@ -848,7 +851,10 @@ class CodeGenerator(CompiscriptVisitor):
         if not self.loop_stack:
             # TypeChecker ya reporta el error aquí evita crashear
             return None
+
         Lcontinue, _ = self.loop_stack[-1]
+
+        print(self.loop_stack)
         self.emit("goto", None, None, Lcontinue)
         return None
 

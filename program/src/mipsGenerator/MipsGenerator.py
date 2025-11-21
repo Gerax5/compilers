@@ -210,6 +210,7 @@ class MIPSGenerator:
 
         for name, (label, size) in self.arrayutil.arrays.items():
             self.output.append(f"{label}: .space {size*4}")
+            self.output.append(f"{label}_len: .word {size}")
 
         for lit, label in self.strings.items():
             text = lit[1:-1]
@@ -297,6 +298,7 @@ class MIPSGenerator:
 
             clean_res = res.replace("var_", "").replace("tmp_", "")
             if clean_res in self.symbol_table and "[]" in str(self.symbol_table[clean_res].ty):
+                self.arrays[clean_res] = arg1.replace("var_", "").replace("tmp_", "")
                 self.output += [
                     f"\tlw $t0, {arg1}",
                     f"\tsw $t0, {res}",
@@ -456,6 +458,20 @@ class MIPSGenerator:
         elif op == "label":
             raw = res.replace("var_", "").replace("tmp_", "")
             self.output.append(f"{raw}:")
+            return
+
+        elif op == "len":
+            arr_name = arg1
+            dest = res
+
+            clean = arr_name.replace("var_", "").replace("tmp_", "")
+            array = self.arrays.get(clean)
+            label, _ = self.arrayutil.arrays[array]
+
+            self.output += [
+                f"\tlw $t0, {label}_len",
+                f"\tsw $t0, {dest}",
+            ]
             return
         
         if op == "setprop":
